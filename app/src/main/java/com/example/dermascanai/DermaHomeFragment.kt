@@ -36,7 +36,7 @@ class DermaHomeFragment : Fragment() {
     private val binding get() = _binding!!
     private lateinit var mDatabase: DatabaseReference
     private lateinit var mAuth: FirebaseAuth
-
+    private lateinit var database: FirebaseDatabase
     private lateinit var notificationBinding: LayoutNotificationPopupBinding
     private lateinit var notificationAdapter: NotificationAdapter
     private val notificationList = mutableListOf<Notification>()
@@ -64,9 +64,39 @@ class DermaHomeFragment : Fragment() {
 
         val drawerLayout = binding.drawerLayout
         val navView = binding.navigationView
-
+        database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mAuth = FirebaseAuth.getInstance()
         mDatabase = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("userInfo")
+        val currentUserEmail = FirebaseAuth.getInstance().currentUser?.email
+        val bookingsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("bookings")
+
+        bookingsRef.orderByChild("doctorEmail").equalTo(currentUserEmail)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    var latestBooking: Appointment? = null
+                    var latestTime: Long = 0
+
+                    for (child in snapshot.children) {
+                        val booking = child.getValue(Appointment::class.java)
+                        if (booking != null && booking.createdAt != null && booking.createdAt > latestTime) {
+                            latestTime = booking.createdAt
+                            latestBooking = booking
+                        }
+                    }
+
+//                    binding.nameAppoint.text = booking.time
+
+                    latestBooking?.let {
+
+                    } ?: run {
+                        Log.d("Booking", "No bookings found")
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Log.e("Booking", "Error: ${error.message}")
+                }
+            })
 
         val headerView = navView.getHeaderView(0)
         val closeDrawerBtn = headerView.findViewById<ImageView>(R.id.closeDrawerBtn)
@@ -119,7 +149,7 @@ class DermaHomeFragment : Fragment() {
         })
 
         if (userId != null) {
-            getUserData(userId)
+            fetchUserData()
         } else {
             Toast.makeText(context, "User not logged in", Toast.LENGTH_SHORT).show()
         }
@@ -179,41 +209,30 @@ class DermaHomeFragment : Fragment() {
         _binding = null
     }
 
-    private fun getUserData(userId: String) {
-        val userRef = mDatabase.child(userId)
+    private fun fetchUserData() {
+        val userId = FirebaseAuth.getInstance().currentUser?.uid
+        val dermaRef: DatabaseReference = database.getReference("dermaInfo").child(userId ?: return)
 
-        userRef.get().addOnSuccessListener { snapshot ->
+        dermaRef.get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
-                val user = snapshot.getValue(UserInfo::class.java)
+                val dermaInfo = snapshot.getValue(DermaInfo::class.java)
 
-                if (user != null) {
-                    binding.fullName.text = "${user.name}"
 
-                    if (user.profileImage != null) {
-                        try {
-                            val decodedByteArray = Base64.decode(user.profileImage, Base64.DEFAULT)
-                            val decodedBitmap = BitmapFactory.decodeByteArray(decodedByteArray, 0, decodedByteArray.size)
+                binding.fullName.setText(dermaInfo?.name ?: "")
 
-                            binding.profileView.setImageBitmap(decodedBitmap)
-                        } catch (e: Exception) {
-                            Log.e("UserProfileFragment", "Error decoding Base64 image", e)
-                            Toast.makeText(context, "Error loading profile image", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Glide.with(this)
-                            .load(R.drawable.ic_profile)
-                            .into(binding.profileView)
+
+                dermaInfo?.profileImage?.let {
+                    if (it.isNotEmpty()) {
+                        val decodedBytes = Base64.decode(it, Base64.DEFAULT)
+                        val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                        binding.profileView.setImageBitmap(bitmap)
                     }
-
-                } else {
-                    Toast.makeText(context, "User data not found", Toast.LENGTH_SHORT).show()
                 }
             } else {
-                Toast.makeText(context, "User not found in database", Toast.LENGTH_SHORT).show()
+//
             }
-        }.addOnFailureListener { e ->
-            Log.e("UserProfileFragment", "Error fetching user data", e)
-            Toast.makeText(context, "Failed to retrieve user data", Toast.LENGTH_SHORT).show()
+        }.addOnFailureListener {
+//
         }
     }
 

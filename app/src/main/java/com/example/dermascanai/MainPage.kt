@@ -204,7 +204,7 @@ class MainPage : AppCompatActivity() {
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true)
         val input = preprocessImage(resizedBitmap)
 
-        val output = Array(1) { FloatArray(24) }
+        val output = Array(1) { FloatArray(7) }
         interpreter?.run(input, output)
 
         val maxIndex = output[0].indices.maxByOrNull { output[0][it] } ?: -1
@@ -249,7 +249,7 @@ class MainPage : AppCompatActivity() {
     private fun getRemedy(condition: String): String {
         return when (condition) {
             "Acne" -> "Cleanse your face twice daily with a mild cleanser and apply over-the-counter benzoyl peroxide or salicylic acid products to reduce inflammation and bacteria."
-            "Ezcema" -> "Keep the skin moisturized with fragrance-free creams or ointments; apply a cool compress to relieve itching and avoid known irritants."
+            "Eczema" -> "Keep the skin moisturized with fragrance-free creams or ointments; apply a cool compress to relieve itching and avoid known irritants."
             "Melanoma" -> "Seek immediate medical attention. Melanoma is a serious form of skin cancer and cannot be treated with home remedies."
             "Psoriasis" -> " Apply aloe vera gel or a moisturizer with coal tar or salicylic acid; take short daily baths with oatmeal or Epsom salt to soothe itching."
             "Serborrheic Keratoses" -> "These are generally harmless; however, moisturizers and gentle exfoliation may help reduce irritation. For removal, consult a dermatologist."

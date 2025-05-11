@@ -52,6 +52,8 @@ dependencies {
     implementation("androidx.palette:palette:1.0.0")
 
     implementation("com.github.bumptech.glide:glide:4.15.0")
+    implementation(libs.androidx.swiperefreshlayout)
+//    implementation(libs.androidx.swiperefreshlayout)
     ksp("com.github.bumptech.glide:compiler:4.15.0")
 
     implementation("androidx.room:room-runtime:2.5.0")

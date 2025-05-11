@@ -32,6 +32,20 @@
     <color name="grey">#E4E0E1</color>
     <color name="darkgrey">#7A7A7A</color>
     <color name="red">@android:color/holo_red_dark</color>
+    <color name="green">#4CAF50</color>
+    <color name="orange">#FF9800</color>
+    <color name="gray">#6A665C</color>
+    <color name="pending_text">#FFFF8800</color>
+    <color name="confirmed_text">#FF4CAF50</color>
+    <color name="declined_text">#FFFF5252</color>
+    <color name="completed_text">#FF2196F3</color>
+    <color name="pending_stroke">#FFFFCC80</color>
+    <color name="confirmed_stroke">#FFA5D6A7</color>
+    <color name="declined_stroke">#FFEF9A9A</color>
+    <color name="completed_stroke">#FFBBDEFB</color>
+
+
+
 
 
 

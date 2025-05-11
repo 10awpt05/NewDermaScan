@@ -78,7 +78,7 @@ class DermaProfileFragment : Fragment() {
         }
 
         binding.appointmentBtn.setOnClickListener {
-            val intent = Intent(requireContext(), BookingRecords::class.java)
+            val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
             startActivity(intent)
         }
 
