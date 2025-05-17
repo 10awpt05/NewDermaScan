@@ -208,7 +208,7 @@ class MainPage : AppCompatActivity() {
                 binding.detailBtn.setOnClickListener {
                     val intent = Intent(this@MainPage, DiseaseDetails::class.java)
                     intent.putExtra("condition", result)
-                    intent.putExtra("image", imageUri)
+                    intent.putExtra("image", selectedImageBase64)
                     startActivity(intent)
                 }
                 binding.saveScanButton.visibility = View.VISIBLE

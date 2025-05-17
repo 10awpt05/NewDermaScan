@@ -180,15 +180,15 @@
                 android:hint="Content Here"
                 android:textColor="@color/black" />
 
-            <TextView
+            <Button
                 android:id="@+id/cttoText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:layout_marginBottom="30dp"
                 android:layout_gravity="center"
-                android:text="CTTO: "
-                android:textColor="@color/teal_700"
+                android:text="See More Details"
+                android:textColor="@color/white"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:clickable="true"

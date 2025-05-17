@@ -38,7 +38,7 @@ class DiseaseDetails : AppCompatActivity() {
 
     private fun fetchDetails() {
         val condition = intent.getStringExtra("condition")
-        val img = intent.getStringExtra("img")
+        val img = intent.getStringExtra("image")
         val diseaseRef: DatabaseReference = database.getReference("disease").child(condition ?: return)
 
         diseaseRef.get().addOnSuccessListener { snapshot ->
@@ -55,7 +55,6 @@ class DiseaseDetails : AppCompatActivity() {
                 val creditUrl = diseaseInfo?.creditURL
                 if (!creditUrl.isNullOrEmpty()) {
                     binding.cttoText.apply {
-                        text = "CTTO: $creditUrl"
                         visibility = android.view.View.VISIBLE
                         setOnClickListener {
 
