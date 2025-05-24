@@ -22,6 +22,7 @@ class Booking : AppCompatActivity() {
     private var selectedDate: Long = 0L
     private var selectedServiceText: String = ""
     private var patientEmail: String = ""
+    private var clinicEmail: String = ""
     private var clinicName: String = ""
     private lateinit var database: FirebaseDatabase
     private lateinit var bookingsRef: DatabaseReference
@@ -41,10 +42,39 @@ class Booking : AppCompatActivity() {
 
         // Get intent data
         patientEmail = intent.getStringExtra("patientEmail") ?: ""
-        clinicName = intent.getStringExtra("clinicName") ?: ""
+        clinicEmail = intent.getStringExtra("clinicEmail") ?: ""
+
+        val clinicsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+            .getReference("clinicInfo")
+
+        clinicsRef.orderByChild("email").equalTo(clinicEmail)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        val clinicSnapshot = snapshot.children.first()
+                        val clinicInfo = clinicSnapshot.getValue(ClinicInfo::class.java)
+
+                        if (clinicInfo != null) {
+                            val clinicName = clinicInfo.name ?: "Unknown Clinic"
+                            val clinicId = clinicSnapshot.key ?: ""
+
+                            // ✅ Now you can use clinicName and clinicId
+                            displayClinicName(clinicName)
+                        }
+                    } else {
+                        Toast.makeText(this@Booking, "Clinic not found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@Booking, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+                }
+            })
+
+
 
         println("Patient Email: $patientEmail")
-        println("Clinic Name: $clinicName")
+        println("Clinic email: $clinicEmail")
 
 
         // Initialize components
@@ -142,36 +172,39 @@ class Booking : AppCompatActivity() {
         binding.servicesContainer.removeAllViews()
         showLoadingForServices()
 
-        clinicsRef.get().addOnSuccessListener { snapshot ->
-            if (snapshot.exists()) {
-                val clinicSnapshot = snapshot.children.firstOrNull()
-                val clinicInfo = clinicSnapshot?.getValue(ClinicInfo::class.java)
+        // Query the clinic by email
+        clinicsRef.orderByChild("email").equalTo(clinicEmail)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        val clinicSnapshot = snapshot.children.firstOrNull()
+                        val clinicInfo = clinicSnapshot?.getValue(ClinicInfo::class.java)
 
-                if (clinicInfo != null) {
-                    displayClinicName(clinicInfo.name ?: "Unknown Clinic")
+                        if (clinicInfo != null) {
+                            clinicName = clinicInfo.name ?: "Unknown Clinic"
+                            displayClinicName(clinicName)
 
-                    if (clinicName.isEmpty()) {
-                        clinicName = clinicInfo.name ?: "Unknown Clinic"
-                    }
-
-                    val services = clinicInfo.services ?: listOf()
-                    if (services.isNotEmpty()) {
-                        setupDynamicServiceButtons(services)
+                            val services = clinicInfo.services ?: listOf()
+                            if (services.isNotEmpty()) {
+                                setupDynamicServiceButtons(services)
+                            } else {
+                                showNoServicesMessage()
+                            }
+                        } else {
+                            showNoClinicDataMessage()
+                        }
                     } else {
-                        showNoServicesMessage()
+                        showNoClinicDataMessage()
                     }
-
-                } else {
-                    showNoClinicDataMessage()
                 }
-            } else {
-                showNoClinicDataMessage()
-            }
-        }.addOnFailureListener { error ->
-            Toast.makeText(this, "Error loading services: ${error.message}", Toast.LENGTH_SHORT).show()
-            clearServicesContainer()
-        }
+
+                override fun onCancelled(error: DatabaseError) {
+                    Toast.makeText(this@Booking, "Error loading services: ${error.message}", Toast.LENGTH_SHORT).show()
+                    clearServicesContainer()
+                }
+            })
     }
+
 
     private fun displayClinicName(clinicName: String) {
         // You can update the toolbar title or show a toast

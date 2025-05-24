@@ -92,7 +92,7 @@ class DermaHomeFragment : Fragment() {
 
         val userId = mAuth.currentUser?.uid
         val userNotificationsRef = notificationRef.child(userId!!)
-        userNotificationsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        userNotificationsRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 notificationList.clear()
                 var hasUnread = false
@@ -151,7 +151,7 @@ class DermaHomeFragment : Fragment() {
         val dateText = getCurrentFormattedDate()
         binding.currentTime.text = dateText
 
-            checkApprovedBookingForToday("Derma_Clinic_Dummy", requireContext()) { isApproved ->
+        checkApprovedBookingForToday("Derma_Clinic_Dummy", requireContext()) { isApproved ->
             binding.nameAppoint.text = if (isApproved) "You have an approved booking today" else "No Approved Booking Today"
         }
         fetchUserData()

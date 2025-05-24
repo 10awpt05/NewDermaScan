@@ -33,13 +33,13 @@ class CommentAdapter(
         holder.binding.textView33.text = comment.comment
 
         // Load profile image
-        comment.userProfileImageBase64?.let {
-            try {
-                val decodedBytes = Base64.decode(it, Base64.DEFAULT)
-                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                holder.binding.profile.setImageBitmap(bitmap)
-            } catch (_: Exception) {}
-        }
+//        comment.userProfileImageBase64?.let {
+//            try {
+//                val decodedBytes = Base64.decode(it, Base64.DEFAULT)
+//                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+//                holder.binding.profile.setImageBitmap(bitmap)
+//            } catch (_: Exception) {}
+//        }
 
         // Fetch and display user's name
         comment.userId?.let { uid ->
@@ -49,6 +49,17 @@ class CommentAdapter(
                 .addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
                         holder.binding.name.text = snapshot.child("name").getValue(String::class.java) ?: "Unknown"
+
+                        val base64Image = snapshot.child("profileImage").getValue(String::class.java)
+                        if (!base64Image.isNullOrEmpty()) {
+                            try {
+                                val decodedBytes = Base64.decode(base64Image, Base64.DEFAULT)
+                                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                                holder.binding.profile.setImageBitmap(bitmap)
+                            } catch (_: Exception) {
+                                // Optional: Set a fallback image
+                            }
+                        }
                     }
 
                     override fun onCancelled(error: DatabaseError) {

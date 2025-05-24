@@ -129,7 +129,7 @@ class BlogView : AppCompatActivity() {
 
         userRef.get().addOnSuccessListener { snapshot ->
             val fullName = snapshot.child("name").getValue(String::class.java) ?: "Unknown"
-            val profileImage = snapshot.child("profileImageBase64").getValue(String::class.java)
+            val profileImage = snapshot.child("profileImage").getValue(String::class.java)
 
             val comment = Comment(
                 commentId = commentId,
@@ -175,7 +175,7 @@ class BlogView : AppCompatActivity() {
         database.child("userInfo").child(userId).get()
             .addOnSuccessListener { userSnapshot ->
                 val fullName = userSnapshot.child("name").getValue(String::class.java) ?: "Unknown"
-                val profileImage = userSnapshot.child("profileImageBase64").getValue(String::class.java)
+                val profileImage = userSnapshot.child("profileImage").getValue(String::class.java)
 
                 val reply = Comment(
                     commentId = replyId,

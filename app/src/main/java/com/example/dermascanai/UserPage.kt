@@ -26,7 +26,7 @@ class UserPage : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityUserPageBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        notificationListenerStartTime = System.currentTimeMillis()
+
 
 
         listenForNotifications()
@@ -196,6 +196,8 @@ class UserPage : AppCompatActivity() {
         val notifRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
             .getReference("notifications")
             .child(currentUserId)
+
+        notificationListenerStartTime = System.currentTimeMillis()
 
         notificationListener = object : ChildEventListener {
             override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {

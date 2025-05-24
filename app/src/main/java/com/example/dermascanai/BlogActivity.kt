@@ -53,7 +53,7 @@
             binding = ActivityBlogBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
-            notificationListenerStartTime = System.currentTimeMillis()
+
 
             loadCurrentUserInfo()
             setupRecyclerView()
@@ -86,7 +86,7 @@
             notifRecyclerView.adapter = notificationAdapter
 
             val userNotificationsRef = notificationRef.child(currentUserId!!)
-            userNotificationsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            userNotificationsRef.addValueEventListener(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     notificationList.clear()
                     var hasUnread = false
@@ -372,17 +372,19 @@
                 .getReference("notifications")
                 .child(currentUserId)
 
+            notificationListenerStartTime = System.currentTimeMillis()
+
             notificationListener = object : ChildEventListener {
                 override fun onChildAdded(snapshot: DataSnapshot, previousChildName: String?) {
                     val notification = snapshot.getValue(Notification::class.java)
                     if (notification != null && !notification.isRead && notification.timestamp > notificationListenerStartTime) {
                         playNotificationSound()
 
-                        Toast.makeText(
-                            this@BlogActivity, // or your correct context
-                            notification.message,
-                            Toast.LENGTH_LONG
-                        ).show()
+//                        Toast.makeText(
+//                            this@BlogActivity, // or your correct context
+//                            notification.message,
+//                            Toast.LENGTH_LONG
+//                        ).show()
                     }
                 }
 

@@ -160,6 +160,19 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/cardView3">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
         <!-- Dermatologist Section -->
         <TextView
             android:id="@+id/textView35"
@@ -190,6 +203,7 @@
             android:layout_width="match_parent"
             android:layout_height="220dp"
             android:layout_marginTop="10dp"
+            android:padding="15dp"
             android:background="@drawable/recycler_rounded_bg"
             app:layout_constraintTop_toBottomOf="@id/textView35"
             app:layout_constraintStart_toStartOf="parent"
@@ -208,15 +222,47 @@
             app:layout_constraintTop_toBottomOf="@id/dermaRecycleView"
             app:layout_constraintStart_toStartOf="parent" />
 
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/postRecycleView"
+        <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/recycler_rounded_bg"
-            app:layout_constraintTop_toBottomOf="@id/postLayout"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="100dp"
+            app:cardCornerRadius="15dp"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintTop_toBottomOf="@+id/postLayout">
+
+
+            <LinearLayout
+                android:id="@+id/topDiscussion"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+
+                android:padding="15dp">
+
+                <TextView
+                    android:id="@+id/byNameTextView"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="bottom"
+                    android:text="By: Name" />
+
+                <TextView
+                    android:id="@+id/contentDiscuss"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:textStyle="bold"
+                    android:text="Content Here" />
+
+            </LinearLayout>
+        </androidx.cardview.widget.CardView>
+        </LinearLayout>
+
+        </ScrollView>
 
         <androidx.constraintlayout.widget.Barrier
             android:layout_width="wrap_content"

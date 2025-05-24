@@ -2,7 +2,7 @@ package com.example.dermascanai
 
 
 data class UserInfo(
-    var uid: String? = null,
+
     var name: String? = null,
     var email: String? = null,
     var password: String = "",
@@ -15,7 +15,8 @@ data class UserInfo(
     var city: String? = null,
     var barangay: String? = null,
     var quote: String? = null,
-    var bio: String? = null
+    var bio: String? = null,
+    var uid: String? = null,
 )
 
 data class DermaInfo(

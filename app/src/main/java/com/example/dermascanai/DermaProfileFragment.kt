@@ -93,7 +93,7 @@ class DermaProfileFragment : Fragment() {
         val userId = mAuth.currentUser?.uid
 
         val userNotificationsRef = notificationRef.child(userId!!)
-        userNotificationsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+        userNotificationsRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 notificationList.clear()
                 var hasUnread = false

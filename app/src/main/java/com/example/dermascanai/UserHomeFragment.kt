@@ -18,6 +18,7 @@ import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.bumptech.glide.Glide
 import androidx.recyclerview.widget.GridLayoutManager
+import com.example.dermascanai.databinding.FragmentDermaHomeBinding
 import com.example.dermascanai.databinding.FragmentHomeUserBinding
 import com.example.dermascanai.databinding.LayoutNotificationPopupBinding
 import com.example.dermascanai.databinding.NavHeaderBinding
@@ -83,6 +84,8 @@ class UserHomeFragment : Fragment() {
             drawerLayout.closeDrawer(GravityCompat.END)
         }
 
+        displayTopBlogPost(binding)
+
 
         binding.dateTimeText.text = formatted
 
@@ -138,7 +141,7 @@ class UserHomeFragment : Fragment() {
                 }
             }
 
-            notificationRef.child(userId).addListenerForSingleValueEvent(notificationEventListener!!)
+            notificationRef.child(userId).addValueEventListener(notificationEventListener!!)
 
             getUserData(userId)
         } else {
@@ -366,5 +369,44 @@ class UserHomeFragment : Fragment() {
 
         val dialog = builder.create()
         dialog.show()
+    }
+
+    fun displayTopBlogPost(binding: FragmentHomeUserBinding) {
+        val blogPostsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("blogPosts")
+
+        blogPostsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                var topPost: BlogPost? = null
+
+                for (postSnapshot in snapshot.children) {
+                    val blogPost = postSnapshot.getValue(BlogPost::class.java)
+                    blogPost?.let {
+                        if (topPost == null ||
+                            (it.commentCount + it.likeCount) > (topPost!!.commentCount + topPost!!.likeCount)
+                        ) {
+                            topPost = it
+                        }
+                    }
+                }
+
+                topPost?.let { post ->
+                    binding.contentDiscuss.text = post.content
+                    binding.byNameTextView.text = "By: ${post.fullName}"
+
+                    binding.topDiscussion.setOnClickListener {
+                        val intent = Intent(binding.root.context, BlogView::class.java).apply {
+                            putExtra("fullName", post.fullName)
+                            putExtra("content", post.content)
+                            putExtra("id", post.postId)
+                        }
+                        binding.root.context.startActivity(intent)
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(binding.root.context, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
     }
 }
