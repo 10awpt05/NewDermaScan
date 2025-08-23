@@ -31,7 +31,7 @@
             android:layout_gravity="center_vertical"
             android:textColor="@color/black"
             android:textSize="15sp"
-            android:text="Click to view attached file"
+            android:text="Tap to see scan result"
             />
 
         <ImageView

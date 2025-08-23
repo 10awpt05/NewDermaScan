@@ -43,10 +43,18 @@
         private val notificationRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
             .getReference("notifications")
 
+        private val clinicRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+            .getReference("clinicInfo")
+
+
         private lateinit var notificationListener: ChildEventListener
         private var currentFullName: String = ""
         private var currentImageBase64: String = ""
         private var notificationListenerStartTime: Long = 0
+
+        private var currentClinicName: String = ""
+        private var currentClinicAddress: String = ""
+        private var currentClinicContact: String = ""
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
@@ -207,7 +215,11 @@
                     postImageBase64 = selectedImageBase64,
                     timestamp = timestamp,
                     likeCount = 0,
-                    commentCount = 0
+                    commentCount = 0,
+                    clinicName = currentClinicName,
+                    clinicAddress = currentClinicAddress,
+                    clinicContact = currentClinicContact
+
                 )
 
                 blogRef.child(postId).setValue(blogPost)
@@ -224,32 +236,38 @@
         }
 
 
-
         private fun loadCurrentUserInfo() {
             val userId = auth.currentUser?.uid
             if (userId != null) {
+                // 🔹 First, try fetching UserInfo
                 userRef.child(userId).addListenerForSingleValueEvent(object : ValueEventListener {
                     override fun onDataChange(snapshot: DataSnapshot) {
-                        val user = snapshot.getValue(UserInfo::class.java)
-                        if (user != null) {
-                            currentFullName = user.name ?: ""
-                            currentImageBase64 = user.profileImage ?: ""
-
-
-                            // Ensure the imageBase64 is not empty
-                            if (currentImageBase64.isNotEmpty()) {
-                                try {
-                                    val imageBytes = Base64.decode(currentImageBase64, Base64.DEFAULT)
-                                    val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                                    binding.profilePic.setImageBitmap(bitmap) // Set to ImageView
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                    Toast.makeText(this@BlogActivity, "Error loading image", Toast.LENGTH_SHORT).show()
-                                }
-                            } else {
-                                // Set a default image if the Base64 is empty
-                                binding.profilePic.setImageResource(R.drawable.ic_profile2)
+                        if (snapshot.exists()) {
+                            // ✅ User found
+                            val user = snapshot.getValue(UserInfo::class.java)
+                            if (user != null) {
+                                currentFullName = user.name ?: ""
+                                currentImageBase64 = user.profileImage ?: ""
+                                loadProfileImage(currentImageBase64)
                             }
+                        } else {
+                            // ❌ Not a User → check Clinic
+                            clinicRef.child(userId).addListenerForSingleValueEvent(object : ValueEventListener {
+                                override fun onDataChange(clinicSnapshot: DataSnapshot) {
+                                    if (clinicSnapshot.exists()) {
+                                        val clinic = clinicSnapshot.getValue(ClinicInfo::class.java)
+                                        if (clinic != null) {
+                                            currentFullName = clinic.clinicName ?: ""
+                                            currentImageBase64 = clinic.logoImage ?: ""
+                                            loadProfileImage(currentImageBase64)
+                                        }
+                                    }
+                                }
+
+                                override fun onCancelled(error: DatabaseError) {
+                                    Toast.makeText(this@BlogActivity, "Failed to load clinic data", Toast.LENGTH_SHORT).show()
+                                }
+                            })
                         }
                     }
 
@@ -257,6 +275,23 @@
                         Toast.makeText(this@BlogActivity, "Failed to load user data", Toast.LENGTH_SHORT).show()
                     }
                 })
+            }
+        }
+
+        // 🔹 Helper to decode and display profile image
+        private fun loadProfileImage(base64: String) {
+            if (base64.isNotEmpty()) {
+                try {
+                    val imageBytes = Base64.decode(base64, Base64.DEFAULT)
+                    val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    binding.profilePic.setImageBitmap(bitmap)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this@BlogActivity, "Error loading image", Toast.LENGTH_SHORT).show()
+                    binding.profilePic.setImageResource(R.drawable.ic_profile2)
+                }
+            } else {
+                binding.profilePic.setImageResource(R.drawable.ic_profile2)
             }
         }
 

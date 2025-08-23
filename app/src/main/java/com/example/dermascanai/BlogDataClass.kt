@@ -10,7 +10,10 @@ data class BlogPost(
     var timestamp: Long = 0L,
     var likeCount: Int = 0,
     var commentCount: Int = 0,
-    var likes: MutableMap<String, Boolean> = mutableMapOf()
+    var likes: MutableMap<String, Boolean> = mutableMapOf(),
+    val clinicName: String? = null,
+    val clinicAddress: String? = null,
+    val clinicContact: String? = null
 )
 
 

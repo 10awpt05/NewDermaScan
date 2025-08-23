@@ -54,10 +54,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.segmentation.Segmentation
 import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions
 import kotlinx.coroutines.tasks.await
-
-
-
-
+import showWarningDialog
 
 
 class MainPage : AppCompatActivity() {
@@ -122,7 +119,7 @@ class MainPage : AppCompatActivity() {
 //        )
 
 
-
+        showWarningDialog(this)
 
         adapter = ClinicAdapter(this, clinicList) { clickedClinic ->
             val intent = Intent(this, ClinicDetails::class.java)
@@ -210,7 +207,7 @@ class MainPage : AppCompatActivity() {
 
 
     private fun loadModelFile(): MappedByteBuffer {
-        val fileDescriptor: AssetFileDescriptor = assets.openFd("new_model.tflite")
+        val fileDescriptor: AssetFileDescriptor = assets.openFd("ModelAI2.tflite")
         val inputStream = fileDescriptor.createInputStream()
         val fileChannel = inputStream.channel
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, fileDescriptor.startOffset, fileDescriptor.declaredLength)
@@ -276,20 +273,20 @@ class MainPage : AppCompatActivity() {
             CoroutineScope(Dispatchers.Main).launch {
                 showProgress()
 
-//                val result = withContext(Dispatchers.IO) {
-//                    val rotatedBitmap = rotateImageIfNeeded(bitmap, imageUri)
-//                    val predictionResult = predict(rotatedBitmap)
-//                    predictionResult
-//                }
-
-                val rotatedBitmap = rotateImageIfNeeded(bitmap, imageUri)
-                val predictionResult = segmentAndPredict(rotatedBitmap)
-
-                if (predictionResult == null) {
-                    Toast.makeText(this@MainPage, "No skin detected in image.", Toast.LENGTH_LONG).show()
-                    hideProgress()
-                    return@launch
+                val result = withContext(Dispatchers.IO) {
+                    val rotatedBitmap = rotateImageIfNeeded(bitmap, imageUri)
+                    val predictionResult = predict(rotatedBitmap)
+                    predictionResult
                 }
+
+//                val rotatedBitmap = rotateImageIfNeeded(bitmap, imageUri)
+//                val predictionResult = segmentAndPredict(rotatedBitmap)
+//
+//                if (predictionResult == null) {
+//                    Toast.makeText(this@MainPage, "No skin detected in image.", Toast.LENGTH_LONG).show()
+//                    hideProgress()
+//                    return@launch
+//                }
 
 
 
@@ -298,7 +295,7 @@ class MainPage : AppCompatActivity() {
                 }
 
                 hideProgress()
-                val result = predictionResult
+//                val result = predictionResult
                 binding.detailBtn.visibility = View.VISIBLE
                 binding.skinImageView.setImageBitmap(bitmap)
                 binding.resultTextView.text = "You might have $result"
@@ -465,7 +462,7 @@ class MainPage : AppCompatActivity() {
         val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 224, 224, true)
         val input = preprocessImage(resizedBitmap)
 
-        val output = Array(1) { FloatArray(7) } //FloatArray(7) = number of datasets
+        val output = Array(1) { FloatArray(15) } //FloatArray(7) = number of datasets
         interpreter?.run(input, output)
 
         val maxIndex = output[0].indices.maxByOrNull { output[0][it] } ?: -1
@@ -495,14 +492,30 @@ class MainPage : AppCompatActivity() {
 //
 //        )
         val conditionLabels = listOf(
+//            "Acne",
+//            "Ezcema",
+//            "Melanoma",
+////            "Normal",
+//            "Psoriasis",
+//            "Serborrheic Keratoses",
+//            "Tinea Ringworm",
+//            "Warts or Viral Infection"
+
             "Acne",
-            "Ezcema",
+            "Actinic Keratosis (AK)",
+            "Basal Cell Carcinoma (BCC)",
+            "Chickenpox (Varicella)",
+            "Eczema  or Atopic Dermatitis",
+            "Melanocytic Nevi (Moles)",
             "Melanoma",
-//            "Normal",
+            "Monkeypox",
+            "Nail Fungus (Onychomycosis)",
+            "Normal Skin",
             "Psoriasis",
-            "Serborrheic Keratoses",
-            "Tinea Ringworm",
-            "Warts or Viral Infection"
+            "Rosacea",
+            "Seborrheic Keratosis",
+            "Tinea or Ringworm",
+            "Warts (Verruca, Viral Infection)"
         )
 
         return conditionLabels.getOrElse(index) { "Unknown" }
@@ -510,14 +523,32 @@ class MainPage : AppCompatActivity() {
 
     private fun getRemedy(condition: String): String {
         return when (condition) {
+//            "Acne" -> "Cleanse your face twice daily with a mild cleanser and apply over-the-counter benzoyl peroxide or salicylic acid products to reduce inflammation and bacteria."
+//            "Eczema" -> "Keep the skin moisturized with fragrance-free creams or ointments; apply a cool compress to relieve itching and avoid known irritants."
+//            "Melanoma" -> "Seek immediate medical attention. Melanoma is a serious form of skin cancer and cannot be treated with home remedies."
+////            "Normal" -> "You have a Normal skin. Keep it Up."
+//            "Psoriasis" -> " Apply aloe vera gel or a moisturizer with coal tar or salicylic acid; take short daily baths with oatmeal or Epsom salt to soothe itching."
+//            "Serborrheic Keratoses" -> "These are generally harmless; however, moisturizers and gentle exfoliation may help reduce irritation. For removal, consult a dermatologist."
+//            "Tinea Ringworm"->"Apply an over-the-counter antifungal cream (like clotrimazole or terbinafine) twice daily and keep the affected area clean and dry."
+//            "Warts or Viral Infection" -> "Use salicylic acid treatments or cryotherapy products available over the counter. Avoid picking to prevent spreading the virus.      "
+//            else -> "No specific remedy found. Consult a dermatologist for diagnosis and treatment."
+
+
             "Acne" -> "Cleanse your face twice daily with a mild cleanser and apply over-the-counter benzoyl peroxide or salicylic acid products to reduce inflammation and bacteria."
-            "Eczema" -> "Keep the skin moisturized with fragrance-free creams or ointments; apply a cool compress to relieve itching and avoid known irritants."
+            "Actinic Keratosis (AK)" -> "Apply sunscreen regularly, avoid excessive sun exposure, and see a dermatologist for possible cryotherapy or prescription treatments."
+            "Basal Cell Carcinoma (BCC)" -> "Seek immediate medical attention. BCC is a form of skin cancer and requires professional treatment, such as surgery or topical medications."
+            "Chickenpox (Varicella)" -> "Use calamine lotion or oatmeal baths to relieve itching. Keep nails trimmed to prevent scratching and secondary infections."
+            "Eczema  or Atopic Dermatitis" -> "Keep skin moisturized with fragrance-free creams or ointments. Apply cool compresses to relieve itching and avoid known irritants."
+            "Melanocytic Nevi (Moles)" -> "Most moles are harmless, but monitor for changes in size, shape, or color. Consult a dermatologist if you notice abnormalities."
             "Melanoma" -> "Seek immediate medical attention. Melanoma is a serious form of skin cancer and cannot be treated with home remedies."
-//            "Normal" -> "You have a Normal skin. Keep it Up."
-            "Psoriasis" -> " Apply aloe vera gel or a moisturizer with coal tar or salicylic acid; take short daily baths with oatmeal or Epsom salt to soothe itching."
-            "Serborrheic Keratoses" -> "These are generally harmless; however, moisturizers and gentle exfoliation may help reduce irritation. For removal, consult a dermatologist."
-            "Tinea Ringworm"->"Apply an over-the-counter antifungal cream (like clotrimazole or terbinafine) twice daily and keep the affected area clean and dry."
-            "Warts or Viral Infection" -> "Use salicylic acid treatments or cryotherapy products available over the counter. Avoid picking to prevent spreading the virus.      "
+            "Monkeypox" -> "Isolate yourself, keep rashes clean and dry, and take pain relievers or fever reducers if needed. Consult a healthcare provider for monitoring."
+            "Nail Fungus (Onychomycosis)" -> "Apply antifungal creams or medicated nail solutions. Keep nails dry and trimmed; oral medication may be required for persistent cases."
+            "Normal Skin" -> "Your skin is healthy. Maintain good hydration, a balanced diet, and regular skincare with sunscreen to keep it that way!"
+            "Psoriasis" -> "Apply aloe vera gel or a moisturizer with coal tar or salicylic acid. Short daily baths with oatmeal or Epsom salt may soothe itching."
+            "Rosacea" -> "Avoid triggers such as spicy foods, alcohol, and extreme temperatures. Use gentle skincare products and consult a dermatologist for medication if severe."
+            "Seborrheic Keratosis" -> "These are generally harmless. Moisturizers and gentle exfoliation may help irritation. For removal, consult a dermatologist."
+            "Tinea or Ringworm" -> "Apply an over-the-counter antifungal cream (like clotrimazole or terbinafine) twice daily. Keep the affected area clean and dry."
+            "Warts (Verruca, Viral Infection)" -> "Use salicylic acid treatments or over-the-counter cryotherapy. Avoid picking to prevent spreading the virus."
             else -> "No specific remedy found. Consult a dermatologist for diagnosis and treatment."
         }
 
@@ -648,5 +679,3 @@ class MainPage : AppCompatActivity() {
 
 
 }
-
-

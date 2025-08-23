@@ -15,6 +15,7 @@ firebaseDatabase = "21.0.0"
 firebaseStorage = "21.0.1"
 swiperefreshlayout = "1.1.0"
 firebaseFirestore = "25.1.4"
+firebaseMessaging = "25.0.0"
 
 
 [libraries]
@@ -31,6 +32,7 @@ firebase-database = { group = "com.google.firebase", name = "firebase-database",
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage", version.ref = "firebaseStorage" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore", version.ref = "firebaseFirestore" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
 
 
 

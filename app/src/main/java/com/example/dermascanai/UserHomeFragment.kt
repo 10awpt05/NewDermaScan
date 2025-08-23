@@ -205,14 +205,15 @@ class UserHomeFragment : Fragment() {
 //            drawerLayout.closeDrawers()
 //            true
 //        }
-        val cardView = binding.cardView3
+        val cardView = binding.cardGradientBackground
 
 // Pick consistent color based on current day
         val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
         val colors = listOf(
             R.drawable.gradient_red,
             R.drawable.gradient_green,
-            R.drawable.gradient_black
+            R.drawable.gradient_black,
+            R.drawable.gradient_blue
         )
         val selectedGradient = colors[dayOfYear % colors.size]
 

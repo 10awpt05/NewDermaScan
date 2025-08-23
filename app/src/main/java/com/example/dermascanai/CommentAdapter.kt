@@ -32,24 +32,15 @@ class CommentAdapter(
         // Set comment text
         holder.binding.textView33.text = comment.comment
 
-        // Load profile image
-//        comment.userProfileImageBase64?.let {
-//            try {
-//                val decodedBytes = Base64.decode(it, Base64.DEFAULT)
-//                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-//                holder.binding.profile.setImageBitmap(bitmap)
-//            } catch (_: Exception) {}
-//        }
+        // Fetch user or clinic info
+        val dbRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
 
-        // Fetch and display user's name
-        comment.userId?.let { uid ->
-            FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
-                .getReference("userInfo")
-                .child(uid)
-                .addListenerForSingleValueEvent(object : ValueEventListener {
-                    override fun onDataChange(snapshot: DataSnapshot) {
+        dbRef.getReference("userInfo").child(comment.userId)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    if (snapshot.exists()) {
+                        // It's a normal user
                         holder.binding.name.text = snapshot.child("name").getValue(String::class.java) ?: "Unknown"
-
                         val base64Image = snapshot.child("profileImage").getValue(String::class.java)
                         if (!base64Image.isNullOrEmpty()) {
                             try {
@@ -57,36 +48,60 @@ class CommentAdapter(
                                 val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
                                 holder.binding.profile.setImageBitmap(bitmap)
                             } catch (_: Exception) {
-                                // Optional: Set a fallback image
+                                holder.binding.profile.setImageResource(R.drawable.ic_profile2)
                             }
+                        } else {
+                            holder.binding.profile.setImageResource(R.drawable.ic_profile2)
                         }
-                    }
+                    } else {
+                        // If not a user, check clinicInfo
+                        dbRef.getReference("clinicInfo").child(comment.userId)
+                            .addListenerForSingleValueEvent(object : ValueEventListener {
+                                override fun onDataChange(clinicSnap: DataSnapshot) {
+                                    if (clinicSnap.exists()) {
+                                        val clinicName = clinicSnap.child("clinicName").getValue(String::class.java) ?: "Unknown Clinic"
+                                        val logoImage = clinicSnap.child("logoImage").getValue(String::class.java)
+                                        holder.binding.name.text = clinicName
+                                        if (!logoImage.isNullOrEmpty()) {
+                                            try {
+                                                val decodedBytes = Base64.decode(logoImage, Base64.DEFAULT)
+                                                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                                                holder.binding.profile.setImageBitmap(bitmap)
+                                            } catch (_: Exception) {
+                                                holder.binding.profile.setImageResource(R.drawable.ic_profile2)
+                                            }
+                                        } else {
+                                            holder.binding.profile.setImageResource(R.drawable.ic_profile2)
+                                        }
+                                    }
+                                }
 
-                    override fun onCancelled(error: DatabaseError) {
-                        holder.binding.name.text = "Unknown"
+                                override fun onCancelled(error: DatabaseError) {}
+                            })
                     }
-                })
-        }
+                }
 
-        // Set reply click listener
+                override fun onCancelled(error: DatabaseError) {}
+            })
+
+        // Reply click listener
         holder.binding.linearLayout.setOnClickListener {
             replyListener.onReply(comment.commentId)
         }
 
-        // Set up nested RecyclerView for replies
+        // Nested RecyclerView for replies
         val replyList = mutableListOf<Comment>()
         val replyAdapter = ReplyAdapter(replyList)
         holder.binding.recyclerViewComment.layoutManager = LinearLayoutManager(context)
         holder.binding.recyclerViewComment.adapter = replyAdapter
         holder.binding.commentLayout.visibility = View.VISIBLE
 
-        val replyRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
-            .getReference("comments")
+        val replyRef = dbRef.getReference("comments")
             .child(postId)
             .child("replies")
             .child(comment.commentId)
 
-        // 🔁 Listen for real-time updates
+        // Listen for real-time reply updates
         replyRef.addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 replyList.clear()

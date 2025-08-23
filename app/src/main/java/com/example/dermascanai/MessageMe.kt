@@ -35,6 +35,7 @@ class MessageMe : AppCompatActivity() {
 
         receiverId = intent.getStringExtra("receiverId")
 
+        receiverId?.let { loadClinicProfile(it) }
 
 
         binding.backBTN.setOnClickListener {
@@ -254,4 +255,38 @@ class MessageMe : AppCompatActivity() {
 
         notificationRef.child(notificationId).setValue(notificationData)
     }
+
+    private fun loadClinicProfile(receiverId: String) {
+        val databaseClinic = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+            .getReference("clinicInfo").child(receiverId)
+
+        databaseClinic.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val clinicProfile = snapshot.getValue(ClinicInfo::class.java)
+
+                if (clinicProfile != null) {
+                    // Display the name (you can set this anywhere you want)
+                    binding.textView46.text = clinicProfile.name ?: "No name"
+
+                    // Decode Base64 image if available
+                    clinicProfile.logoImage?.let {
+                        try {
+                            val imageBytes = android.util.Base64.decode(it, android.util.Base64.DEFAULT)
+                            val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                            binding.profile.setImageBitmap(bitmap)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+                } else {
+                    Toast.makeText(this@MessageMe, "Clinic profile not found", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(this@MessageMe, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
 }

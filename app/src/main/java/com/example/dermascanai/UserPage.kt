@@ -2,9 +2,13 @@ package com.example.dermascanai
 
 import android.animation.AnimatorSet
 import android.animation.ObjectAnimator
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.BitmapFactory
 import android.media.MediaPlayer
+import android.net.ConnectivityManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -29,6 +33,10 @@ import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 
+import androidx.appcompat.app.AlertDialog
+
+
+
 class UserPage : AppCompatActivity() {
 
         private lateinit var binding: ActivityUserPageBinding
@@ -43,7 +51,15 @@ class UserPage : AppCompatActivity() {
         private lateinit var notificationAdapter: NotificationAdapter
         private val notificationList = mutableListOf<Notification>()
 
-        private val notificationRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+
+    private var noInternetDialog: AlertDialog? = null
+    private lateinit var networkReceiver: BroadcastReceiver
+    private var retryCount = 0
+    private val maxRetries = 3
+
+
+
+    private val notificationRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
             .getReference("notifications")
 
         private var selectedTab = "home" // Track selected tab
@@ -199,7 +215,90 @@ class UserPage : AppCompatActivity() {
             binding.fabScan.setOnClickListener {
                 startActivity(Intent(this, MainPage::class.java))
             }
+
+            registerNetworkReceiver()
+
+
         }
+
+    private fun registerNetworkReceiver() {
+        networkReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (NetworkUtil.isConnected(context)) {
+                    retryCount = 0
+                    noInternetDialog?.dismiss()
+                } else {
+                    showNoInternetDialog()
+                }
+            }
+        }
+
+        val filter = IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION)
+        registerReceiver(networkReceiver, filter)
+    }
+
+
+    private fun showNoInternetDialog() {
+        if (noInternetDialog?.isShowing == true) return
+
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("No Internet Connection")
+        builder.setMessage("Please connect to the internet to continue using the app.")
+        builder.setCancelable(false)
+
+        builder.setPositiveButton("Retry") { _, _ ->
+            showLoadingAndRetry()
+        }
+
+        builder.setNegativeButton("Close App") { _, _ ->
+            finishAffinity()
+        }
+
+        noInternetDialog = builder.create()
+        noInternetDialog?.show()
+    }
+    private fun showLoadingAndRetry() {
+        val loadingDialog = AlertDialog.Builder(this)
+            .setTitle("Retrying...")
+            .setMessage("Checking internet connection...")
+            .setCancelable(false)
+            .create()
+
+        loadingDialog.show()
+
+        // Wait 5 seconds
+        window.decorView.postDelayed({
+            loadingDialog.dismiss()
+
+            if (NetworkUtil.isConnected(this)) {
+                retryCount = 0
+                noInternetDialog?.dismiss()
+            } else {
+                retryCount++
+                if (retryCount >= maxRetries) {
+                    val finalDialog = AlertDialog.Builder(this)
+                        .setTitle("No Internet")
+                        .setMessage("The app will now close due to repeated failures.")
+                        .setCancelable(false)
+                        .setPositiveButton("Close App") { _, _ ->
+                            finishAffinity()
+                        }
+                        .create()
+                    finalDialog.show()
+                } else {
+                    showNoInternetDialog()
+                }
+            }
+        }, 5000)
+    }
+
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(networkReceiver)
+    }
+
+
 
 
 
