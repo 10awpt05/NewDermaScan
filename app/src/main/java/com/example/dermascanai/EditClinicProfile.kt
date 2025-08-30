@@ -3,6 +3,7 @@ package com.example.dermascanai
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.TimePickerDialog
+import android.content.ContentValues
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -16,6 +17,8 @@ import android.util.Base64
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.Toast
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -37,11 +40,14 @@ class EditClinicProfile : AppCompatActivity() {
     private var selectedLogoImage: Bitmap? = null
     private var selectedBIRImage: Bitmap? = null
     private var selectedPermitImage: Bitmap? = null
+    private var selectedValidIdImage: Bitmap? = null
 
     private var existingLogoImage: String? = null
     private var existingBIRImage: String? = null
     private var existingPermitImage: String? = null
+    private var existingValidIdImage: String? = null
 
+    private var cameraImageUri: Uri? = null
     private val userId = FirebaseAuth.getInstance().currentUser?.uid
 
     // RecyclerView adapters
@@ -50,6 +56,11 @@ class EditClinicProfile : AppCompatActivity() {
     private val servicesList = mutableListOf<String>()
     private val dermatologistsList = mutableListOf<Dermatologist>()
 
+    // New ActivityResultLaunchers
+    private lateinit var cameraLauncher: ActivityResultLauncher<Uri>
+    private lateinit var galleryLauncher: ActivityResultLauncher<String>
+    private var currentImageType: Int = -1
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDermaEditInfoBinding.inflate(layoutInflater)
@@ -57,10 +68,32 @@ class EditClinicProfile : AppCompatActivity() {
 
         database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
 
+        setupActivityResultLaunchers()
         setupViews()
         setupRecyclerViews()
         fetchClinicData()
         setupClickListeners()
+    }
+
+    /**
+     * Setup modern activity result launchers
+     */
+    private fun setupActivityResultLaunchers() {
+        cameraLauncher = registerForActivityResult(ActivityResultContracts.TakePicture()) { success ->
+            if (success) {
+                cameraImageUri?.let { uri ->
+                    val bitmap = getBitmapFromUri(uri)
+                    handleImageResult(bitmap, currentImageType)
+                }
+            }
+        }
+
+        galleryLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+            uri?.let {
+                val bitmap = getBitmapFromUri(it)
+                handleImageResult(bitmap, currentImageType)
+            }
+        }
     }
 
     private fun setupViews() {
@@ -134,6 +167,10 @@ class EditClinicProfile : AppCompatActivity() {
 
         binding.uploadPermitBtn.setOnClickListener {
             showImagePickerDialog(IMAGE_TYPE_PERMIT)
+        }
+
+        binding.idDoc.setOnClickListener {
+            showImagePickerDialog(IMAGE_TYPE_VALIDID)
         }
     }
 
@@ -216,58 +253,52 @@ class EditClinicProfile : AppCompatActivity() {
     }
 
     private fun showImagePickerDialog(imageType: Int) {
+        currentImageType = imageType
         val options = arrayOf("Take Photo", "Choose from Gallery")
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Select Image")
         builder.setItems(options) { _, which ->
             when (which) {
-                0 -> openCamera(imageType)
-                1 -> openGallery(imageType)
+                0 -> openCamera()
+                1 -> openGallery()
             }
         }
         builder.show()
     }
 
-    private fun openCamera(imageType: Int) {
+    private fun openCamera() {
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.CAMERA), PERMISSION_CODE)
         } else {
-            val cameraIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-            startActivityForResult(cameraIntent, REQUEST_CAMERA + imageType)
-        }
-    }
-
-    private fun openGallery(imageType: Int) {
-        val galleryIntent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        startActivityForResult(galleryIntent, REQUEST_GALLERY + imageType)
-    }
-
-    @RequiresApi(Build.VERSION_CODES.P)
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK) {
-            when {
-                requestCode in REQUEST_CAMERA..REQUEST_CAMERA + 2 -> {
-                    val photo = data?.extras?.get("data") as Bitmap
-                    val imageType = requestCode - REQUEST_CAMERA
-                    handleImageResult(photo, imageType)
-                }
-                requestCode in REQUEST_GALLERY..REQUEST_GALLERY + 2 -> {
-                    val imageUri: Uri? = data?.data
-                    imageUri?.let {
-                        val bitmap = if (Build.VERSION.SDK_INT < 28) {
-                            MediaStore.Images.Media.getBitmap(this.contentResolver, it)
-                        } else {
-                            val source = ImageDecoder.createSource(this.contentResolver, it)
-                            ImageDecoder.decodeBitmap(source)
-                        }
-                        val imageType = requestCode - REQUEST_GALLERY
-                        handleImageResult(bitmap, imageType)
-                    }
-                }
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.TITLE, "New Picture")
+                put(MediaStore.Images.Media.DESCRIPTION, "From Camera")
             }
+            cameraImageUri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+            cameraImageUri?.let { uri ->
+                cameraLauncher.launch(uri)
+            }
+
         }
     }
+
+    private fun openGallery() {
+        galleryLauncher.launch("image/*")
+    }
+
+    private fun getBitmapFromUri(uri: Uri): Bitmap {
+        val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val source = ImageDecoder.createSource(contentResolver, uri)
+            ImageDecoder.decodeBitmap(source)
+        } else {
+            @Suppress("DEPRECATION")
+            MediaStore.Images.Media.getBitmap(contentResolver, uri)
+        }
+        return bitmap.copy(Bitmap.Config.ARGB_8888, true) // normalize format
+    }
+
+
+
 
     private fun handleImageResult(bitmap: Bitmap, imageType: Int) {
         when (imageType) {
@@ -279,14 +310,17 @@ class EditClinicProfile : AppCompatActivity() {
             IMAGE_TYPE_BIR -> {
                 selectedBIRImage = bitmap
                 binding.birDocument.setImageBitmap(bitmap)
-                binding.uploadBirBtn.visibility = View.GONE
                 Toast.makeText(this, "BIR document updated", Toast.LENGTH_SHORT).show()
             }
             IMAGE_TYPE_PERMIT -> {
                 selectedPermitImage = bitmap
                 binding.permitDocument.setImageBitmap(bitmap)
-                binding.uploadPermitBtn.visibility = View.GONE
                 Toast.makeText(this, "Business permit updated", Toast.LENGTH_SHORT).show()
+            }
+            IMAGE_TYPE_VALIDID -> {
+                selectedValidIdImage = bitmap
+                binding.idPic.setImageBitmap(bitmap)
+                Toast.makeText(this, "Valid ID updated", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -332,7 +366,7 @@ class EditClinicProfile : AppCompatActivity() {
                 val decodedBytes = Base64.decode(it, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
                 binding.birDocument.setImageBitmap(bitmap)
-                binding.uploadBirBtn.visibility = View.GONE
+                binding.uploadBirBtn.visibility = View.VISIBLE
             }
         }
 
@@ -342,7 +376,17 @@ class EditClinicProfile : AppCompatActivity() {
                 val decodedBytes = Base64.decode(it, Base64.DEFAULT)
                 val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
                 binding.permitDocument.setImageBitmap(bitmap)
-                binding.uploadPermitBtn.visibility = View.GONE
+                binding.uploadPermitBtn.visibility = View.VISIBLE
+            }
+        }
+
+        clinicInfo.validIdImage?.let {
+            if (it.isNotEmpty()) {
+                existingValidIdImage = it
+                val decodedBytes = Base64.decode(it, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                binding.idPic.setImageBitmap(bitmap)
+                binding.idDoc.visibility = View.VISIBLE
             }
         }
 
@@ -385,10 +429,10 @@ class EditClinicProfile : AppCompatActivity() {
         clinicInfoMap["services"] = servicesList
         clinicInfoMap["dermatologists"] = dermatologistsList
 
-
         clinicInfoMap["logoImage"] = selectedLogoImage?.let { encodeImage(it) } ?: existingLogoImage
         clinicInfoMap["birDocument"] = selectedBIRImage?.let { encodeImage(it) } ?: existingBIRImage
         clinicInfoMap["permitDocument"] = selectedPermitImage?.let { encodeImage(it) } ?: existingPermitImage
+        clinicInfoMap["validIdImage"] = selectedValidIdImage?.let { encodeImage(it) } ?: existingValidIdImage
 
         if (userId != null) {
             clinicRef.child(userId).updateChildren(clinicInfoMap)
@@ -405,19 +449,37 @@ class EditClinicProfile : AppCompatActivity() {
     }
 
     private fun encodeImage(bitmap: Bitmap): String {
+        val maxWidth = 800
+        val maxHeight = 800
+
+        val ratio = minOf(
+            maxWidth.toFloat() / bitmap.width,
+            maxHeight.toFloat() / bitmap.height,
+            1f
+        )
+        val scaledBitmap = if (ratio < 1f) {
+            Bitmap.createScaledBitmap(
+                bitmap,
+                (bitmap.width * ratio).toInt(),
+                (bitmap.height * ratio).toInt(),
+                true
+            )
+        } else {
+            bitmap
+        }
+
         val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, outputStream)
-        val imageBytes = outputStream.toByteArray()
-        return Base64.encodeToString(imageBytes, Base64.DEFAULT)
+        scaledBitmap.compress(Bitmap.CompressFormat.JPEG, 60, outputStream)
+
+        return Base64.encodeToString(outputStream.toByteArray(), Base64.DEFAULT)
     }
 
     companion object {
         private const val PERMISSION_CODE = 100
-        private const val REQUEST_CAMERA = 101
-        private const val REQUEST_GALLERY = 201
 
         private const val IMAGE_TYPE_LOGO = 0
         private const val IMAGE_TYPE_BIR = 1
         private const val IMAGE_TYPE_PERMIT = 2
+        private const val IMAGE_TYPE_VALIDID = 3
     }
 }

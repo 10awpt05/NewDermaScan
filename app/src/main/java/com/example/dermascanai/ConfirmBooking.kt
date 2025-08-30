@@ -48,7 +48,7 @@ class ConfirmBooking : AppCompatActivity() {
         binding = ActivityConfirmBookingBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        firebase = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+        firebase = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app")
         auth = FirebaseAuth.getInstance()
 
         val emojiIcon = findViewById<ImageView>(R.id.emojiIcon)
@@ -197,54 +197,98 @@ class ConfirmBooking : AppCompatActivity() {
         })
     }
 
+    private fun fetchClinicId(clinicName: String, onResult: (String?) -> Unit) {
+        val clinicsRef = FirebaseDatabase.getInstance().getReference("clinicInfo")
+
+        clinicsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                var clinicId: String? = null
+                for (clinicSnap in snapshot.children) {
+                    val name = clinicSnap.child("name").getValue(String::class.java)
+                    if (name == clinicName) {
+                        clinicId = clinicSnap.key // <- found clinicId
+                        break
+                    }
+                }
+                onResult(clinicId) // return clinicId
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                onResult(null)
+            }
+        })
+    }
+
+
     private fun saveBookingToFirebase() {
         val messageText = binding.messageEditText.text.toString().trim()
 
-        // Validate message is not empty
         if (messageText.isEmpty()) {
             Toast.makeText(this, "Please enter a message", Toast.LENGTH_SHORT).show()
             return
         }
 
-        // Get reference to bookings
-        val bookingsRef = firebase.getReference("bookings")
+        // Generate bookingId if not already set
+        val bookingId = firebase.reference.push().key ?: System.currentTimeMillis().toString()
 
-        // Create a booking object
-        val booking = HashMap<String, Any>()
-        booking["bookingId"] = bookingId
-        booking["patientEmail"] = patientEmail
-        booking["clinicName"] = clinicName
-        booking["date"] = selectedDate
-        booking["service"] = selectedService
-        booking["message"] = messageText  // Ensure message is saved
-        booking["status"] = "pending" // pending, confirmed, cancelled, completed
-        booking["timestampMillis"] = timestampMillis
-        booking["createdAt"] = System.currentTimeMillis()
+        // Logged-in user ID
+        val userId = auth.currentUser?.uid ?: patientEmail.replace(".", ",")
 
-        Log.d("ConfirmBooking", "Saving booking with message: $messageText")
-
-        // Save in Firebase
-        bookingsRef.child(bookingId).setValue(booking)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Booking confirmed successfully!", Toast.LENGTH_SHORT).show()
-
-                val userBookingsRef = firebase.getReference("userBookings").child(patientEmail.replace(".", ","))
-                userBookingsRef.child(bookingId).setValue(booking)
-
-                // Use clinic name for doctor bookings reference instead of email
-                val doctorBookingsRef = firebase.getReference("clinicBookings").child(clinicName.replace(" ", "_").replace(".", ","))
-                doctorBookingsRef.child(bookingId).setValue(booking)
-
-                val intent = Intent(this, UserPage::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                startActivity(intent)
-                finish()
+        // 🔥 Fetch real clinicId from Firebase
+        fetchClinicId(clinicName) { clinicId ->
+            if (clinicId == null) {
+                Toast.makeText(this, "Clinic not found", Toast.LENGTH_SHORT).show()
+                return@fetchClinicId
             }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Error saving booking: ${e.message}", Toast.LENGTH_SHORT).show()
-                Log.e("ConfirmBooking", "Error saving booking", e)
-            }
+
+            // ✅ Now we have the correct clinicId
+            val booking = HashMap<String, Any>()
+            booking["bookingId"] = bookingId
+            booking["userId"] = userId
+            booking["patientEmail"] = patientEmail
+            booking["clinicId"] = clinicId
+            booking["clinicName"] = clinicName
+            booking["date"] = selectedDate
+            booking["service"] = selectedService
+            booking["message"] = messageText
+            booking["status"] = "pending" // pending, confirmed, cancelled, completed
+            booking["timestampMillis"] = timestampMillis
+            booking["createdAt"] = System.currentTimeMillis()
+
+            // 1. Save to master bookings
+            val bookingsRef = firebase.getReference("bookings").child(bookingId)
+            bookingsRef.setValue(booking)
+                .addOnSuccessListener {
+                    // 2. Save to user's sub-collection
+                    val userBookingRef = firebase.getReference("userInfo")
+                        .child(userId)
+                        .child("bookings")
+                        .child(bookingId)
+                    userBookingRef.setValue(booking)
+
+                    // 3. Save to clinic's sub-collection
+                    val clinicBookingRef = firebase.getReference("clinicInfo")
+                        .child(clinicId)
+                        .child("bookings")
+                        .child(bookingId)
+                    clinicBookingRef.setValue(booking)
+
+                    Toast.makeText(this, "Booking confirmed successfully!", Toast.LENGTH_SHORT).show()
+
+                    // Go back to user page
+                    val intent = Intent(this, UserPage::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    startActivity(intent)
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(this, "Error saving booking: ${e.message}", Toast.LENGTH_SHORT).show()
+                    Log.e("ConfirmBooking", "Error saving booking", e)
+                }
+        }
     }
+
+
 
     private fun showEmojiPopup(anchor: View) {
         val popupView = layoutInflater.inflate(R.layout.emoji_popup, null)

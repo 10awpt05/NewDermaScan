@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "889758966173",
+    "firebase_url": "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "dermascanai-2d7a1",
     "storage_bucket": "dermascanai-2d7a1.firebasestorage.app"
   },
@@ -12,7 +13,12 @@
           "package_name": "com.example.dermascanai"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "889758966173-p8s8n3v9kjj5hldegj388ehtv0ucvb27.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDTABdg3Mn3NkBZeBtuDY05SUoGzbTpLpE"
@@ -20,7 +26,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "889758966173-p8s8n3v9kjj5hldegj388ehtv0ucvb27.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

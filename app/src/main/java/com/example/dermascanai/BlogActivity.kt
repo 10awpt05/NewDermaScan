@@ -205,10 +205,11 @@
 
                 val postId = blogRef.push().key!!
                 val timestamp = System.currentTimeMillis()
+                val currentUserId = auth.currentUser?.uid ?: return@setOnClickListener
 
                 val blogPost = BlogPost(
                     postId = postId,
-                    userId = auth.currentUser?.uid ?: "",
+                    userId = currentUserId,
                     fullName = currentFullName,
                     profilePicBase64 = currentImageBase64,
                     content = content,
@@ -219,9 +220,9 @@
                     clinicName = currentClinicName,
                     clinicAddress = currentClinicAddress,
                     clinicContact = currentClinicContact
-
                 )
 
+                // 1️⃣ Save to main blogPosts node
                 blogRef.child(postId).setValue(blogPost)
                     .addOnSuccessListener {
                         Toast.makeText(this, "Blog posted!", Toast.LENGTH_SHORT).show()
@@ -230,7 +231,32 @@
                     .addOnFailureListener {
                         Toast.makeText(this, "Failed to post", Toast.LENGTH_SHORT).show()
                     }
+
+                val dbRef = FirebaseDatabase.getInstance(
+                    "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+                ).reference
+
+                // 2️⃣ Check if current user is a regular user
+                dbRef.child("userInfo").child(currentUserId)
+                    .addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(snapshot: DataSnapshot) {
+                            if (snapshot.exists()) {
+                                // Current user is a regular user → save blog under userInfo
+                                dbRef.child("userInfo").child(currentUserId).child("blogPosts").child(postId)
+                                    .setValue(blogPost)
+                            } else {
+                                // Current user is a clinic → save blog under clinicInfo
+                                dbRef.child("clinicInfo").child(currentUserId).child("blogPosts").child(postId)
+                                    .setValue(blogPost)
+                            }
+                        }
+
+                        override fun onCancelled(error: DatabaseError) {
+                            Toast.makeText(this@BlogActivity, "Failed to save blog in profile", Toast.LENGTH_SHORT).show()
+                        }
+                    })
             }
+
 
             dialog.show()
         }

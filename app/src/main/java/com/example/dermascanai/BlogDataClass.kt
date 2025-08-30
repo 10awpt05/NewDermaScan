@@ -13,11 +13,9 @@ data class BlogPost(
     var likes: MutableMap<String, Boolean> = mutableMapOf(),
     val clinicName: String? = null,
     val clinicAddress: String? = null,
-    val clinicContact: String? = null
+    val clinicContact: String? = null,
+    var comments: MutableMap<String, Comment> = mutableMapOf()
 )
-
-
-
 
 data class Comment(
     val commentId: String = "",
@@ -28,9 +26,8 @@ data class Comment(
     val comment: String = "",
     val timestamp: Long = 0L,
     val parentCommentId: String? = null,
-    var replies: MutableList<Comment> = mutableListOf()
-)
-
-
-
-
+    var replies: MutableMap<String, Comment> = mutableMapOf()
+) {
+    @Transient
+    var repliesList: List<Comment> = listOf()
+}

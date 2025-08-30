@@ -1,5 +1,6 @@
 package com.example.dermascanai
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
@@ -80,14 +81,14 @@ class DermaHomeFragment : Fragment() {
         binding.recyclerView.adapter = adapter
         database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mAuth = FirebaseAuth.getInstance()
-        val clinicId =  mAuth.currentUser?.uid
+        val clinicId = mAuth.currentUser?.uid ?: return
 
         ratingsRef = database.getReference("ratings").child(clinicId.toString())
 
         val headerView = navView.getHeaderView(0)
         val closeDrawerBtn = headerView.findViewById<ImageView>(R.id.closeDrawerBtn)
 
-        binding.ratings.setOnClickListener {
+        binding.viewReviews.setOnClickListener {
             val clinicId = mAuth.currentUser?.uid
             val intent = Intent(requireContext(), RatingView::class.java)
             intent.putExtra("clinicId", clinicId)
@@ -112,7 +113,7 @@ class DermaHomeFragment : Fragment() {
         notificationAdapter = NotificationAdapter(requireContext(), notificationList)
         notifRecyclerView.adapter = notificationAdapter
 
-        val userId = mAuth.currentUser?.uid
+//        val userId = mAuth.currentUser?.uid
 //        val userNotificationsRef = notificationRef.child(userId!!)
 //        userNotificationsRef.addValueEventListener(object : ValueEventListener {
 //            override fun onDataChange(snapshot: DataSnapshot) {
@@ -173,9 +174,15 @@ class DermaHomeFragment : Fragment() {
         val dateText = getCurrentFormattedDate()
         binding.currentTime.text = dateText
 
-        checkApprovedBookingForToday("Derma_Clinic_Dummy", requireContext()) { isApproved ->
-            binding.nameAppoint.text = if (isApproved) "You have an approved booking today" else "No Approved Booking Today"
+
+        checkApprovedBookingCountForToday(clinicId, requireContext()) { count ->
+            binding.nameAppoint.text = when {
+                count == 0 -> "No approved bookings today"
+                count == 1 -> "You have 1 approved booking today"
+                else -> "You have $count approved bookings today"
+            }
         }
+
         fetchUserData()
         loadFeaturedClinic() // Load a random featured clinic on start
 
@@ -225,6 +232,11 @@ class DermaHomeFragment : Fragment() {
             }
         })
 
+        fetchBookingSummaryForClinic(clinicId, requireContext()) { pending, approved, total ->
+            binding.noPedning.text = "$pending"
+            binding.noApproved.text = "$approved"
+            binding.noTotal.text = "$total"
+        }
 
 
     }
@@ -303,7 +315,7 @@ class DermaHomeFragment : Fragment() {
             val clinics = snapshot.children.mapNotNull { it.getValue(ClinicInfo::class.java) }
             if (clinics.isNotEmpty()) {
                 val featuredClinic = clinics.random()
-                binding.name.text = featuredClinic.name
+                binding.name.text = featuredClinic.clinicName
                 binding.totalR.text = String.format("%.1f", featuredClinic?.rating ?: 0f)
 
                 if (!featuredClinic.logoImage.isNullOrEmpty()) {
@@ -334,6 +346,7 @@ class DermaHomeFragment : Fragment() {
         }
     }
 
+    @SuppressLint("UseCompatLoadingForDrawables")
     private fun fetchUserData() {
         val userId = FirebaseAuth.getInstance().currentUser?.uid
         val dermaRef: DatabaseReference = database.getReference("clinicInfo").child(userId ?: return)
@@ -345,8 +358,20 @@ class DermaHomeFragment : Fragment() {
                 val clinicInfo = snapshot.getValue(ClinicInfo::class.java)
 
                 _binding?.apply {
-                    fullName.setText(clinicInfo?.name ?: "")
-                    totalRatings.text = String.format("%.1f", clinicInfo?.rating ?: 0f)
+                    fullName.setText(clinicInfo?.clinicName ?: "")
+
+                    // ✅ Set rating correctly
+                    ratingBar.rating = clinicInfo?.rating ?: 0f
+                    ratingBar.scaleX = 0.6f
+                    ratingBar.scaleY = 0.6f
+
+                    if (clinicInfo?.status == "pending") {
+                        status.setImageDrawable(resources.getDrawable(R.drawable.pending))
+                    } else if (clinicInfo?.status == "verified") {
+                        status.setImageDrawable(resources.getDrawable(R.drawable.verified))
+                    } else {
+                        status.setImageDrawable(resources.getDrawable(R.drawable.decline))
+                    }
 
                     clinicInfo?.logoImage?.let {
                         if (it.isNotEmpty()) {
@@ -357,7 +382,8 @@ class DermaHomeFragment : Fragment() {
                     }
                 }
             }
-        }.addOnFailureListener {
+        }
+            .addOnFailureListener {
             if (isAdded && _binding != null) {
                 Toast.makeText(context, "Failed to fetch clinic info", Toast.LENGTH_SHORT).show()
             }
@@ -407,29 +433,49 @@ class DermaHomeFragment : Fragment() {
         return currentDate.format(formatter)
     }
 
-    private fun checkApprovedBookingForToday(clinicId: String, context: Context, callback: (Boolean) -> Unit) {
+    private fun checkApprovedBookingCountForToday(
+        clinicId: String,
+        context: Context,
+        callback: (Int) -> Unit
+    ) {
         val bookingsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
-            .getReference("clinicBookings")
+            .getReference("clinicInfo")
             .child(clinicId)
-        val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy")
-        val todayFormatted = LocalDate.now().format(formatter)
+            .child("bookings") // ✅ your structure
+
+        // Firebase saves as "Aug 30,2025"
+        val firebaseFormatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
+        val today = LocalDate.now()
 
         bookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                val found = snapshot.children.any {
-                    val date = it.child("date").getValue(String::class.java) ?: ""
-                    val status = it.child("status").getValue(String::class.java) ?: ""
-                    date.startsWith(todayFormatted) && status.equals("confirmed", true)
+                var count = 0
+
+                for (bookingSnapshot in snapshot.children) {
+                    val dateStr = bookingSnapshot.child("date").getValue(String::class.java) ?: ""
+                    val status = bookingSnapshot.child("status").getValue(String::class.java) ?: ""
+
+                    try {
+                        val bookingDate = LocalDate.parse(dateStr, firebaseFormatter)
+                        if (bookingDate == today && status.equals("confirmed", ignoreCase = true)) {
+                            count++
+                        }
+                    } catch (e: Exception) {
+                        Log.e("BookingDebug", "Date parse error for '$dateStr': ${e.message}")
+                    }
                 }
 
-                callback(found)
+                callback(count)
             }
+
             override fun onCancelled(error: DatabaseError) {
                 Toast.makeText(context, "Error checking bookings: ${error.message}", Toast.LENGTH_SHORT).show()
-                callback(false)
+                callback(0)
             }
         })
     }
+
+
 
     override fun onDestroyView() {
         super.onDestroyView()
@@ -478,59 +524,107 @@ class DermaHomeFragment : Fragment() {
         val calendarView = binding.calendarView
         confirmedDates.clear()
 
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
-        val clinicInfoRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
-            .getReference("clinicInfo")
-            .child(userId)
+        val clinicId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        val bookingsRef = FirebaseDatabase.getInstance(
+            "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("clinicInfo")
+            .child(clinicId)
+            .child("bookings")
 
-        clinicInfoRef.get().addOnSuccessListener { snapshot ->
-            val clinicName = snapshot.child("clinicName").getValue(String::class.java)?.replace(" ", "_") ?: return@addOnSuccessListener
-            val bookingsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
-                .getReference("clinicBookings")
-                .child(clinicName)
+        bookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (bookingSnapshot in snapshot.children) {
+                    val status = bookingSnapshot.child("status").getValue(String::class.java)
+                    val dateStr = bookingSnapshot.child("date").getValue(String::class.java)
 
-            bookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    for (bookingSnapshot in snapshot.children) {
-                        val status = bookingSnapshot.child("status").getValue(String::class.java)
-                        val dateStr = bookingSnapshot.child("date").getValue(String::class.java)
+                    if (status.equals("confirmed", ignoreCase = true) && dateStr != null) {
+                        try {
+                            // Adjust format to match your DB
+                            val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH)
+                            val localDate = LocalDate.parse(dateStr, formatter)
+                            val calendarDay = CalendarDay.from(
+                                localDate.year,
+                                localDate.monthValue - 1,
+                                localDate.dayOfMonth
+                            )
 
-                        if (status.equals("confirmed", ignoreCase = true) && dateStr != null) {
-                            try {
-                                val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH)
-                                val localDate = LocalDate.parse(dateStr, formatter)
-                                val calendarDay = CalendarDay.from(localDate.year, localDate.monthValue-1, localDate.dayOfMonth)
+                            confirmedDates.add(calendarDay)
+                        } catch (e: Exception) {
+                            Log.e("CalendarDebug", "Failed to parse date: $dateStr", e)
+                        }
+                    }
+                }
 
-                                Log.d("CalendarDebug", "Adding confirmed date: ${calendarDay.year}-${calendarDay.month}-${calendarDay.day}")
+                // Decorate calendar
+                calendarView.addDecorator(ConfirmedBookingDecorator(confirmedDates))
+                calendarView.addDecorator(TodayDecorator())
 
-                                confirmedDates.add(calendarDay)
-                            } catch (e: Exception) {
-                                Log.e("CalendarDebug", "Failed to parse date: $dateStr", e)
+                // Click listener to open booking page
+                calendarView.setOnDateChangedListener { _, date, _ ->
+                    if (confirmedDates.contains(date)) {
+                        val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
+                        intent.putExtra("selectedDate", date.date.toString())
+                        intent.putExtra("openApprovedTab", true)
+                        startActivity(intent)
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(
+                    requireContext(),
+                    "Failed to load bookings: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        })
+    }
+
+    private fun fetchBookingSummaryForClinic(clinicId: String, context: Context, callback: (pending: Int, approved: Int, total: Int) -> Unit) {
+        val bookingsRef = FirebaseDatabase.getInstance(
+            "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("clinicInfo")
+            .child(clinicId)
+            .child("bookings")
+
+        val today = LocalDate.now()
+        var pendingCount = 0
+        var approvedCount = 0
+        var totalCount = 0
+
+        bookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (bookingSnapshot in snapshot.children) {
+                    val status = bookingSnapshot.child("status").getValue(String::class.java) ?: continue
+                    val dateStr = bookingSnapshot.child("date").getValue(String::class.java) ?: continue
+
+                    try {
+                        val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH)
+                        val bookingDate = LocalDate.parse(dateStr, formatter)
+
+                        // Only count bookings from today onward
+                        if (!bookingDate.isBefore(today)) {
+                            totalCount++
+
+                            when (status.lowercase()) {
+                                "pending" -> pendingCount++
+                                "confirmed" -> approvedCount++
                             }
-
                         }
+
+                    } catch (e: Exception) {
+                        Log.e("BookingSummary", "Failed to parse booking date: $dateStr", e)
                     }
-
-                    calendarView.addDecorator(ConfirmedBookingDecorator(confirmedDates))
-                    calendarView.addDecorator(TodayDecorator())
-
-                    binding.calendarView.setOnDateChangedListener { _, date, _ ->
-                        if (confirmedDates.contains(date)) {
-                            val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
-                            intent.putExtra("selectedDate", date.date.toString())
-                            intent.putExtra("openApprovedTab", true) // 👈 new flag
-                            startActivity(intent)
-
-                        }
-                    }
-
                 }
 
-                override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(context, "Failed to load bookings: ${error.message}", Toast.LENGTH_SHORT).show()
-                }
-            })
-        }
+                callback(pendingCount, approvedCount, totalCount)
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Toast.makeText(context, "Failed to load bookings: ${error.message}", Toast.LENGTH_SHORT).show()
+                callback(0, 0, 0)
+            }
+        })
     }
 
 

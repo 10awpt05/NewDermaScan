@@ -4,6 +4,7 @@ import java.io.Serializable
 
 data class BookingData(
     val bookingId: String = "",
+    val userId: String? = null,
     val clinicName: String? = "",
     val patientEmail: String = "",
     val doctorEmail: String = "",

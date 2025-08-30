@@ -78,21 +78,28 @@ class BlogView : AppCompatActivity() {
         commentsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 commentList.clear()
+
                 for (commentSnap in snapshot.children) {
-                    if (commentSnap.key == "replies") continue
                     val comment = commentSnap.getValue(Comment::class.java)
                     comment?.let {
-                        val repliesSnapshot = snapshot.child("replies").child(it.commentId ?: "")
+                        // Get replies under this comment
+                        val repliesSnapshot = commentSnap.child("replies")
                         val replies = mutableListOf<Comment>()
                         for (replySnap in repliesSnapshot.children) {
                             val reply = replySnap.getValue(Comment::class.java)
                             reply?.let { replies.add(it) }
                         }
+
+                        // Sort replies by timestamp descending
                         replies.sortByDescending { it.timestamp }
-                        it.replies = replies
+                        it.repliesList = replies
+
+                        // Add comment to list
                         commentList.add(it)
                     }
                 }
+
+                // Sort main comments by timestamp descending
                 commentList.sortByDescending { it.timestamp }
                 commentAdapter.notifyDataSetChanged()
             }
@@ -102,6 +109,11 @@ class BlogView : AppCompatActivity() {
             }
         })
     }
+
+
+
+
+
 
     // 🔹 Show reply dialog
     private fun showReplyInputDialog(parentCommentId: String) {
@@ -114,9 +126,7 @@ class BlogView : AppCompatActivity() {
 
         dialog.setPositiveButton("Send") { _, _ ->
             val replyText = input.text.toString().trim()
-            if (replyText.isNotEmpty()) {
-                sendReply(parentCommentId, replyText)
-            }
+            if (replyText.isNotEmpty()) sendReply(parentCommentId, replyText)
         }
         dialog.setNegativeButton("Cancel", null)
         dialog.show()
@@ -140,34 +150,55 @@ class BlogView : AppCompatActivity() {
                 parentCommentId = parentCommentId
             )
 
-            database.child("comments").child(postId).child(commentId).setValue(comment)
-                .addOnSuccessListener {
-                    commentAdapter.addComment(comment)
-                    binding.commentEditText.text?.clear()
+            // Save to central comments node
+            val centralCommentsRef = database.child("comments").child(postId).child(commentId)
+            centralCommentsRef.setValue(comment)
 
-                    database.child("blogPosts").child(postId).child("userId").get()
-                        .addOnSuccessListener { postSnapshot ->
-                            val postOwnerId = postSnapshot.getValue(String::class.java)
-                            if (postOwnerId != null && postOwnerId != userId) {
-                                addNotification(
-                                    toUserId = postOwnerId,
-                                    fromUserId = userId,
-                                    fromUserName = fullName,
-                                    postId = postId,
-                                    commentId = commentId,
-                                    type = "comment"
-                                )
+            // Save under blogPosts node
+            val blogCommentsRef = database.child("blogPosts").child(postId).child("comments").child(commentId)
+            blogCommentsRef.setValue(comment)
+
+            // Save under userInfo or clinicInfo depending on owner
+            database.child("blogPosts").child(postId).child("userId").get()
+                .addOnSuccessListener { postSnapshot ->
+                    val ownerId = postSnapshot.getValue(String::class.java)
+                    ownerId?.let {
+                        database.child("userInfo").child(ownerId).get().addOnSuccessListener { userSnap ->
+                            val ownerRef = if (userSnap.exists()) {
+                                database.child("userInfo").child(ownerId)
+                            } else {
+                                database.child("clinicInfo").child(ownerId)
                             }
+                            ownerRef.child("blogPosts").child(postId).child("comments").child(commentId)
+                                .setValue(comment)
                         }
+                    }
                 }
+
+            // Add notification if commenter is not the owner
+            database.child("blogPosts").child(postId).child("userId").get()
+                .addOnSuccessListener { snapshot ->
+                    val postOwnerId = snapshot.getValue(String::class.java)
+                    if (postOwnerId != null && postOwnerId != userId) {
+                        addNotification(
+                            toUserId = postOwnerId,
+                            fromUserId = userId,
+                            fromUserName = fullName,
+                            postId = postId,
+                            commentId = commentId,
+                            type = "comment"
+                        )
+                    }
+                }
+
+            commentAdapter.addComment(comment)
+            binding.commentEditText.text?.clear()
         }
     }
 
-    // 🔹 Send reply
     private fun sendReply(parentCommentId: String, replyText: String) {
         val userId = auth.currentUser?.uid ?: return
-        val replyId = database.child("comments").child(postId)
-            .child("replies").child(parentCommentId).push().key ?: return
+        val replyId = database.child("comments").child(postId).child(parentCommentId).child("replies").push().key ?: return
         val timestamp = System.currentTimeMillis()
 
         fetchOwnerInfo(userId) { fullName, profileImage ->
@@ -182,29 +213,50 @@ class BlogView : AppCompatActivity() {
                 parentCommentId = parentCommentId
             )
 
-            database.child("comments").child(postId)
-                .child("replies").child(parentCommentId)
-                .child(replyId)
-                .setValue(reply)
-                .addOnSuccessListener {
-                    database.child("comments").child(postId).child(parentCommentId).child("userId").get()
-                        .addOnSuccessListener { commentSnapshot ->
-                            val parentCommentOwnerId = commentSnapshot.getValue(String::class.java)
-                            if (parentCommentOwnerId != null && parentCommentOwnerId != userId) {
-                                addNotification(
-                                    toUserId = parentCommentOwnerId,
-                                    fromUserId = userId,
-                                    fromUserName = fullName,
-                                    postId = postId,
-                                    commentId = replyId,
-                                    parentCommentId = parentCommentId,
-                                    type = "reply"
-                                )
+            // Central comments
+            database.child("comments").child(postId).child(parentCommentId)
+                .child("replies").child(replyId).setValue(reply)
+
+            // Blog posts
+            database.child("blogPosts").child(postId).child("comments")
+                .child(parentCommentId).child("replies").child(replyId).setValue(reply)
+
+            // Owner's userInfo / clinicInfo
+            database.child("blogPosts").child(postId).child("userId").get()
+                .addOnSuccessListener { postSnapshot ->
+                    val ownerId = postSnapshot.getValue(String::class.java)
+                    ownerId?.let {
+                        database.child("userInfo").child(ownerId).get().addOnSuccessListener { userSnap ->
+                            val ownerRef = if (userSnap.exists()) {
+                                database.child("userInfo").child(ownerId)
+                            } else {
+                                database.child("clinicInfo").child(ownerId)
                             }
+                            ownerRef.child("blogPosts").child(postId).child("comments")
+                                .child(parentCommentId).child("replies").child(replyId).setValue(reply)
                         }
+                    }
+                }
+
+            // Notification to parent comment owner
+            database.child("comments").child(postId).child(parentCommentId).child("userId").get()
+                .addOnSuccessListener { snapshot ->
+                    val parentOwnerId = snapshot.getValue(String::class.java)
+                    if (parentOwnerId != null && parentOwnerId != userId) {
+                        addNotification(
+                            toUserId = parentOwnerId,
+                            fromUserId = userId,
+                            fromUserName = fullName,
+                            postId = postId,
+                            commentId = replyId,
+                            parentCommentId = parentCommentId,
+                            type = "reply"
+                        )
+                    }
                 }
         }
     }
+
 
     // 🔹 Fetch owner info (User or Clinic)
     private fun fetchOwnerInfo(ownerId: String, callback: (fullName: String, profileImage: String?) -> Unit) {

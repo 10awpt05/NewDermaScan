@@ -630,6 +630,7 @@
                         </LinearLayout>
 
                         <LinearLayout
+                            android:id="@+id/bir"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -645,6 +646,7 @@
                                 android:layout_marginBottom="8dp"/>
 
                             <FrameLayout
+                                android:id="@+id/bPermit"
                                 android:layout_width="match_parent"
                                 android:layout_height="120dp"
                                 android:background="@drawable/image_placeholder_border">
@@ -669,7 +671,54 @@
                                     android:clickable="true"/>
                             </FrameLayout>
                         </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/valId"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="8dp"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Valid ID"
+                                android:textColor="@color/black"
+                                android:textStyle="bold"
+                                android:layout_marginBottom="8dp"/>
+
+
+                            <FrameLayout
+                                android:id="@+id/validId"
+                                android:layout_width="match_parent"
+                                android:layout_height="120dp"
+                                android:background="@drawable/image_placeholder_border">
+
+                                <ImageView
+                                    android:id="@+id/idPic"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:scaleType="centerCrop"
+                                    android:src="@drawable/verification_placeholder"/>
+
+                                <TextView
+                                    android:id="@+id/idDoc"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_gravity="center"
+                                    android:background="@drawable/button_primary"
+                                    android:padding="8dp"
+                                    android:text="Upload"
+                                    android:textColor="@android:color/white"
+                                    android:textSize="12sp"
+                                    android:clickable="true"/>
+                            </FrameLayout>
+                        </LinearLayout>
+
                     </LinearLayout>
+
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
         </androidx.constraintlayout.widget.ConstraintLayout>

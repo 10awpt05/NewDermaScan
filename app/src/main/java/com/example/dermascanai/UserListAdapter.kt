@@ -9,15 +9,37 @@ import com.example.dermascanai.databinding.ItemUserChatBinding
 import java.io.ByteArrayInputStream
 
 class UserListAdapter(
-    private val users: List<UserInfo>,
-    private val onUserClick: (UserInfo) -> Unit
+    private val chatItems: List<ChatItem>,
+    private val onUserClick: (ChatItem) -> Unit
 ) : RecyclerView.Adapter<UserListAdapter.UserViewHolder>() {
 
     inner class UserViewHolder(val binding: ItemUserChatBinding) : RecyclerView.ViewHolder(binding.root) {
-        fun bind(user: UserInfo) {
-            binding.userName.text = user.name ?: "Unknown"
-            binding.root.setOnClickListener { onUserClick(user) }
-            // You can load profile image here if needed using Glide or Picasso
+        fun bind(item: ChatItem) {
+            binding.userName.text = item.displayName
+
+            if (item.isRead) {
+                binding.root.setBackgroundColor(binding.root.context.getColor(R.color.white))
+            } else {
+                binding.root.setBackgroundColor(binding.root.context.getColor(R.color.nav_item_icon_tint)) // Unread color
+            }
+
+
+            // Load image from Base64
+            item.profileBase64?.let {
+                try {
+                    val decodedBytes = Base64.decode(it, Base64.DEFAULT)
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+                    binding.userProfileImage.setImageBitmap(bitmap)
+                } catch (_: Exception) {
+                    binding.userProfileImage.setImageResource(R.drawable.default_profile)
+                }
+            } ?: run {
+                binding.userProfileImage.setImageResource(R.drawable.default_profile)
+            }
+
+            binding.root.setOnClickListener {
+                onUserClick(item)
+            }
         }
     }
 
@@ -27,8 +49,8 @@ class UserListAdapter(
     }
 
     override fun onBindViewHolder(holder: UserViewHolder, position: Int) {
-        holder.bind(users[position])
+        holder.bind(chatItems[position])
     }
 
-    override fun getItemCount(): Int = users.size
+    override fun getItemCount(): Int = chatItems.size
 }

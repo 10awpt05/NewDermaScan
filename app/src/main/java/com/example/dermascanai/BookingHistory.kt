@@ -167,7 +167,11 @@ class BookingHistory : AppCompatActivity() {
         if (userBookingsListener != null && ::userBookingsRef.isInitialized) {
             userBookingsRef.removeEventListener(userBookingsListener!!)
         }
-        userBookingsRef = database.getReference("userBookings").child(userEmail)
+        val userId = currentUser.uid
+        userBookingsRef = database.getReference("userInfo")
+            .child(userId)
+            .child("bookings")
+
         userBookingsRef.keepSynced(true) // Keep this data synced locally
         userBookingsListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -251,9 +255,12 @@ class BookingHistory : AppCompatActivity() {
         binding.progressBar.visibility = View.VISIBLE
 
         val userEmail = currentUser.email?.replace(".", ",") ?: ""
-        val userBookingRef = database.getReference("userBookings")
-            .child(userEmail)
+        val userId = currentUser.uid
+        val userBookingRef = database.getReference("userInfo")
+            .child(userId)
+            .child("bookings")
             .child(appointment.bookingId)
+
         val clinicBookingRef = database.getReference("clinicBookings")
             .child(appointment.doctorName.replace(" ", "_").replace(".", ","))
             .child(appointment.bookingId)

@@ -239,8 +239,6 @@ class MainPage : AppCompatActivity() {
 
 
 
-
-
     private fun loadClinicsFromFirebase() {
         databaseA.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -497,7 +495,8 @@ class MainPage : AppCompatActivity() {
 
     private fun reportScan(userMessage: String, imageBase64: String?) {
         val userId = firebase.currentUser?.uid ?: return
-        val userNameRef = database.getReference("clinicInfo").child(userId).child("name")
+        val userNameRef = database.getReference("clinicInfo").child(userId).child("clinicName")
+        val clinic = database.getReference("clinicInfo").child(userId)
 
         userNameRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -514,6 +513,8 @@ class MainPage : AppCompatActivity() {
                 val reportsRef = database.getReference("scanReports")
                 val newReportKey = reportsRef.push().key ?: return
 
+
+                clinic.child("scanReports").child(newReportKey).setValue(report)    
                 reportsRef.child(newReportKey).setValue(report)
                     .addOnSuccessListener {
                         Toast.makeText(this@MainPage, "Report sent successfully!", Toast.LENGTH_SHORT).show()
