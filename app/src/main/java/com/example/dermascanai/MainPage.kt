@@ -700,7 +700,7 @@ class MainPage : AppCompatActivity() {
         val imageBase64 = encodeImageToBase64(bitmap)
         val timestamp = SimpleDateFormat("MMMM dd, yyyy HH:mm:ss", Locale.getDefault()).format(Date())
         val scanId = SimpleDateFormat("MM-dd-yyyy_HH-mm-ss", Locale.getDefault()).format(Date())
-
+//        val timestamp = System.currentTimeMillis()
         val scanResult = ScanResult(condition, remedy, imageBase64, timestamp)
 
         databaseReference.child("scanResults").child(userId).child(scanId).setValue(scanResult)

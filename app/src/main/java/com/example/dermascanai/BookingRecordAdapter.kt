@@ -36,15 +36,19 @@ class BookingApprovalAdapter(
 
         fun bind(booking: BookingData) {
             // Format the date
-            val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
-            val date = Date(booking.timestampMillis)
+            // Format both date and time
 
-            // Set basic information
+            // Combine date with the booked time range
+            val dateFormat = SimpleDateFormat("EEE, MMM d, yyyy", Locale.getDefault())
+            val appointmentDate = Date(booking.timestampMillis)
+            val formattedDate = dateFormat.format(appointmentDate)
+            val timeRange = if (!booking.time.isNullOrEmpty()) booking.time else "Time not set"
+
+            binding.appointmentDateTv.text = "$formattedDate at $timeRange"
+
             binding.patientNameTv.text = booking.patientEmail
-            binding.appointmentDateTv.text = dateFormat.format(date)
             binding.notesTextView.text = booking.message
 
-            // Set booking ID if available
             if (booking.bookingId.isNotEmpty()) {
                 binding.bookingIdTextView.text = "#${booking.bookingId.take(8).uppercase()}"
             }

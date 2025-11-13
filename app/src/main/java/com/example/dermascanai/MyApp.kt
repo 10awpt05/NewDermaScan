@@ -9,10 +9,10 @@ class MyApp : Application() {
         super.onCreate()
 
         // ✅ Enable offline persistence
-        FirebaseDatabase.getInstance().setPersistenceEnabled(true)
+        FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").setPersistenceEnabled(true)
 
         // (Optional) Cache specific data always, even if not currently being used
-        FirebaseDatabase.getInstance().getReference("users").keepSynced(true)
-        FirebaseDatabase.getInstance().getReference("posts").keepSynced(true)
+        FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("users").keepSynced(true)
+        FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("posts").keepSynced(true)
     }
 }

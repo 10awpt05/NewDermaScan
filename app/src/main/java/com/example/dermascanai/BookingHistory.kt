@@ -256,6 +256,7 @@ class BookingHistory : AppCompatActivity() {
 
         val userEmail = currentUser.email?.replace(".", ",") ?: ""
         val userId = currentUser.uid
+
         val userBookingRef = database.getReference("userInfo")
             .child(userId)
             .child("bookings")
@@ -264,36 +265,64 @@ class BookingHistory : AppCompatActivity() {
         val clinicBookingRef = database.getReference("clinicBookings")
             .child(appointment.doctorName.replace(" ", "_").replace(".", ","))
             .child(appointment.bookingId)
+
         val mainBookingRef = database.getReference("bookings")
             .child(appointment.bookingId)
+
+        // ✅ New reference for your requested path
+        val userBookingByEmailRef = database.getReference("userBookings")
+            .child(userEmail)
+            .child(appointment.bookingId)
+
         val updates = hashMapOf<String, Any>(
             "status" to "cancelled",
             "cancellationTimestamp" to System.currentTimeMillis(),
             "cancellationReason" to cancelReason
         )
+
+        // Update all paths
         userBookingRef.updateChildren(updates)
             .addOnSuccessListener {
-                Log.d("BookingHistory", "User booking cancelled successfully: ${appointment.bookingId}")
+                Log.d("BookingHistory", "UserInfo booking cancelled: ${appointment.bookingId}")
 
                 clinicBookingRef.updateChildren(updates)
                     .addOnSuccessListener {
-                        Log.d("BookingHistory", "Clinic booking cancelled successfully: ${appointment.bookingId}")
+                        Log.d("BookingHistory", "Clinic booking cancelled: ${appointment.bookingId}")
 
                         mainBookingRef.updateChildren(updates)
                             .addOnSuccessListener {
-                                Log.d("BookingHistory", "Main booking cancelled successfully: ${appointment.bookingId}")
-                                Toast.makeText(this, "Appointment cancelled successfully", Toast.LENGTH_SHORT).show()
-                                binding.progressBar.visibility = View.GONE
+                                Log.d("BookingHistory", "Main booking cancelled: ${appointment.bookingId}")
+
+                                // ✅ Update your userBooking/<email>/bookingID/status
+                                userBookingByEmailRef.updateChildren(updates)
+                                    .addOnSuccessListener {
+                                        Log.d("BookingHistory", "userBooking node updated successfully")
+                                        Toast.makeText(
+                                            this,
+                                            "Appointment cancelled successfully",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        binding.progressBar.visibility = View.GONE
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("BookingHistory", "Error updating userBooking: ${e.message}")
+                                        Toast.makeText(
+                                            this,
+                                            "Cancelled but failed to sync userBooking data",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                        binding.progressBar.visibility = View.GONE
+                                    }
                             }
                             .addOnFailureListener { e ->
                                 Log.e("BookingHistory", "Error cancelling main booking: ${e.message}")
-                                Toast.makeText(this, "Appointment cancelled in your history", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(this, "Appointment cancelled locally", Toast.LENGTH_SHORT).show()
                                 binding.progressBar.visibility = View.GONE
                             }
                     }
                     .addOnFailureListener { e ->
                         Log.e("BookingHistory", "Error cancelling clinic booking: ${e.message}")
-                        Toast.makeText(this, "Appointment cancelled in your history, but there was an error updating clinic's schedule", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "Appointment cancelled in your history, but there was an error updating clinic schedule", Toast.LENGTH_LONG).show()
                         binding.progressBar.visibility = View.GONE
                     }
             }
@@ -303,6 +332,7 @@ class BookingHistory : AppCompatActivity() {
                 binding.progressBar.visibility = View.GONE
             }
     }
+
     private var autoRefreshRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val AUTO_REFRESH_INTERVAL = 30000L // 30 seconds

@@ -500,19 +500,19 @@ class DermaHomeFragment : Fragment() {
                     }
                 }
 
-                topPost?.let { post ->
-                    binding.contentDiscuss.text = post.content
-                    binding.byNameTextView.text = "By: ${post.fullName}"
-
-                    binding.topDiscussion.setOnClickListener {
-                        val intent = Intent(binding.root.context, BlogView::class.java).apply {
-                            putExtra("fullName", post.fullName)
-                            putExtra("content", post.content)
-                            putExtra("id", post.postId)
-                        }
-                        binding.root.context.startActivity(intent)
-                    }
-                }
+//                topPost?.let { post ->
+//                    binding.contentDiscuss.text = post.content
+//                    binding.byNameTextView.text = "By: ${post.fullName}"
+//
+//                    binding.topDiscussion.setOnClickListener {
+//                        val intent = Intent(binding.root.context, BlogView::class.java).apply {
+//                            putExtra("fullName", post.fullName)
+//                            putExtra("content", post.content)
+//                            putExtra("id", post.postId)
+//                        }
+//                        binding.root.context.startActivity(intent)
+//                    }
+//                }
             }
 
             override fun onCancelled(error: DatabaseError) {

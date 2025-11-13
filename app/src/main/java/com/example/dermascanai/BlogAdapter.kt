@@ -150,7 +150,7 @@ class BlogAdapter(
             val intent = android.content.Intent(context, BlogView::class.java).apply {
                 putExtra("fullName", post.fullName)
                 putExtra("content", post.content)
-                putExtra("id", post.postId)
+                putExtra("postId", post.postId)
             }
             context.startActivity(intent)
         }

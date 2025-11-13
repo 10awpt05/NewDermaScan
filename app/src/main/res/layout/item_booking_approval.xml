@@ -397,8 +397,8 @@
                     android:backgroundTint="@color/colorPrimary"
                     android:text="Approve"
                     android:textColor="@android:color/white"
-                    android:paddingVertical="12dp"
-                    app:cornerRadius="12dp"
+                    android:paddingVertical="10dp"
+                    app:cornerRadius="10dp"
                     app:icon="@drawable/checkicon"
                     app:iconGravity="textStart" />
 

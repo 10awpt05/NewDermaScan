@@ -16,12 +16,11 @@ class BlogView : AppCompatActivity() {
     private lateinit var commentAdapter: CommentAdapter
     private val commentList = mutableListOf<Comment>()
 
-    private val database = FirebaseDatabase.getInstance(
-        "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
-    ).reference
+    private val database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
     private val auth = FirebaseAuth.getInstance()
 
     private lateinit var postId: String
+    private lateinit var contentName: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +28,7 @@ class BlogView : AppCompatActivity() {
         setContentView(binding.root)
 
         postId = intent.getStringExtra("postId") ?: return
+        contentName = intent.getStringExtra("content") ?: return
 
         commentAdapter = CommentAdapter(commentList, object : OnCommentReplyListener {
             override fun onReply(parentCommentId: String) {
@@ -46,6 +46,8 @@ class BlogView : AppCompatActivity() {
             }
         }
 
+        binding.title.text = contentName
+
         loadComments()
         loadBlogPost()
         binding.backBTN.setOnClickListener { finish() }
@@ -58,7 +60,7 @@ class BlogView : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val blogPost = snapshot.getValue(BlogPost::class.java)
                 blogPost?.let {
-                    binding.title.text = it.content
+                    binding.title.text = contentName
                     val postOwnerId = it.userId ?: return
                     fetchOwnerInfo(postOwnerId) { fullName, _ ->
                         binding.textView23.text = fullName

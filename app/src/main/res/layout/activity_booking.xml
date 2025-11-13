@@ -114,6 +114,15 @@
                         android:dateTextAppearance="@style/CalendarDateStyle" />
                 </androidx.cardview.widget.CardView>
 
+                <LinearLayout
+                    android:id="@+id/slotsContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="8dp"
+                    android:layout_marginTop="16dp" />
+
+
                 <!-- Availability indicator with badge style -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
@@ -123,28 +132,28 @@
                     app:cardElevation="1dp"
                     app:cardBackgroundColor="#EBF3FE">
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="10dp"
-                        android:gravity="center_vertical">
+<!--                    <LinearLayout-->
+<!--                        android:layout_width="match_parent"-->
+<!--                        android:layout_height="wrap_content"-->
+<!--                        android:orientation="horizontal"-->
+<!--                        android:padding="10dp"-->
+<!--                        android:gravity="center_vertical">-->
 
-                        <ImageView
-                            android:layout_width="20dp"
-                            android:layout_height="20dp"
-                            android:src="@drawable/ic_info"/>
+<!--                        <ImageView-->
+<!--                            android:layout_width="20dp"-->
+<!--                            android:layout_height="20dp"-->
+<!--                            android:src="@drawable/ic_info"/>-->
 
-                        <TextView
-                            android:id="@+id/bookingsAvailableText"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="8dp"
-                            android:text="Available bookings: 3/3"
-                            android:textColor="@color/main_green"
-                            android:textSize="14sp"
-                            android:fontFamily="sans-serif" />
-                    </LinearLayout>
+<!--                        <TextView-->
+<!--                            android:id="@+id/bookingsAvailableText"-->
+<!--                            android:layout_width="match_parent"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:layout_marginStart="8dp"-->
+<!--                            android:text="Available bookings: 3/3"-->
+<!--                            android:textColor="@color/main_green"-->
+<!--                            android:textSize="14sp"-->
+<!--                            android:fontFamily="sans-serif" />-->
+<!--                    </LinearLayout>-->
                 </androidx.cardview.widget.CardView>
 
                 <LinearLayout

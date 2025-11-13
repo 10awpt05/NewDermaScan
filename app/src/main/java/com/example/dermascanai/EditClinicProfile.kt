@@ -97,18 +97,34 @@ class EditClinicProfile : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        val operatingDaysList = listOf(
-            "Monday - Friday",
-            "Monday - Saturday",
-            "Tuesday - Saturday",
-            "Wednesday - Sunday",
-            "Monday - Sunday",
-            "Custom Schedule"
+        val daysList = listOf(
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
         )
 
-        val operatingDaysAdapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, operatingDaysList)
-        binding.editOperatingDays.setAdapter(operatingDaysAdapter)
+        val dayAdapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            daysList
+        )
+
+        binding.editOpeningDay.setAdapter(dayAdapter)
+        binding.editClosingDay.setAdapter(dayAdapter)
+
+        // Optional: close dropdown automatically when user selects
+        binding.editOpeningDay.setOnItemClickListener { parent, _, position, _ ->
+            binding.editOpeningDay.clearFocus()
+        }
+        binding.editClosingDay.setOnItemClickListener { parent, _, position, _ ->
+            binding.editClosingDay.clearFocus()
+        }
     }
+
 
     private fun setupRecyclerViews() {
         // Services RecyclerView
@@ -345,7 +361,22 @@ class EditClinicProfile : AppCompatActivity() {
         binding.editContact.setText(clinicInfo.contact ?: "")
         binding.editEmail.setText(clinicInfo.email ?: "")
         binding.editAddress.setText(clinicInfo.address ?: "")
-        binding.editOperatingDays.setText(clinicInfo.operatingDays ?: "")
+        val operatingDays = clinicInfo.operatingDays ?: ""
+        if (operatingDays.contains("to")) {
+            val parts = operatingDays.split("to").map { it.trim() }
+            binding.editOpeningDay.setText(parts.getOrNull(0) ?: "", false)
+            binding.editClosingDay.setText(parts.getOrNull(1) ?: "", false)
+
+        } else if (operatingDays.contains("-")) {
+            val parts = operatingDays.split("-").map { it.trim() }
+            binding.editOpeningDay.setText(parts.getOrNull(0) ?: "", false)
+            binding.editClosingDay.setText(parts.getOrNull(1) ?: "", false)
+
+        } else {
+            binding.editOpeningDay.setText(operatingDays)
+            binding.editClosingDay.setText("")
+        }
+
         binding.editOpeningTime.setText(clinicInfo.openingTime ?: "")
         binding.editClosingTime.setText(clinicInfo.closingTime ?: "")
         binding.editAbout.setText(clinicInfo.about ?: "")
@@ -414,59 +445,59 @@ class EditClinicProfile : AppCompatActivity() {
             return
         }
 
-        // Basic fields
-        val clinicInfoMap = mutableMapOf<String, Any?>()
-        clinicInfoMap["name"] = binding.editClinicName.text?.toString()
-        clinicInfoMap["tagline"] = binding.editTagline.text?.toString()
-        clinicInfoMap["acceptingPatients"] = binding.acceptingPatientsCheckbox.isChecked
-        clinicInfoMap["contact"] = binding.editContact.text?.toString()
-        clinicInfoMap["email"] = binding.editEmail.text?.toString()
-        clinicInfoMap["address"] = binding.editAddress.text?.toString()
-        clinicInfoMap["status"] = "pending"   // reset to pending after changes
-        clinicInfoMap["operatingDays"] = binding.editOperatingDays.text?.toString()
-        clinicInfoMap["openingTime"] = binding.editOpeningTime.text?.toString()
-        clinicInfoMap["closingTime"] = binding.editClosingTime.text?.toString()
-        clinicInfoMap["about"] = binding.editAbout.text?.toString()
-        clinicInfoMap["services"] = servicesList
-        clinicInfoMap["dermatologists"] = dermatologistsList
+        // Fetch current status first
+        userRef.child("status").get().addOnSuccessListener { snapshot ->
+            val currentStatus = snapshot.getValue(String::class.java)
 
-        // 🔑 Always overwrite with new image if re-uploaded
-        selectedLogoImage?.let {
-            val encoded = encodeImage(it)
-            clinicInfoMap["logoImage"] = encoded
-            android.util.Log.d("SAVE_PROFILE", "Saving NEW logo, length=${encoded.length}")
-        }
+            // Default behavior
+            var newStatus = "pending"
 
-        selectedBIRImage?.let {
-            val encoded = encodeImage(it)
-            clinicInfoMap["birImage"] = encoded
-            android.util.Log.d("SAVE_PROFILE", "Saving NEW BIR, length=${encoded.length}")
-        }
-
-        selectedPermitImage?.let {
-            val encoded = encodeImage(it)
-            clinicInfoMap["businessPermitImage"] = encoded
-            android.util.Log.d("SAVE_PROFILE", "Saving NEW permit, length=${encoded.length}")
-        }
-
-        selectedValidIdImage?.let {
-            val encoded = encodeImage(it)
-            clinicInfoMap["validIdImage"] = encoded
-            android.util.Log.d("SAVE_PROFILE", "Saving NEW validID, length=${encoded.length}")
-        }
-
-        // Write all changes
-        userRef.updateChildren(clinicInfoMap)
-            .addOnSuccessListener {
-                android.util.Log.d("SAVE_PROFILE", "updateChildren success.")
-                Toast.makeText(this, "Clinic profile saved successfully!", Toast.LENGTH_SHORT).show()
-                finish()
+            if (currentStatus == "verified") {
+                // ✅ If already verified, keep it verified
+                newStatus = "verified"
+            } else if (currentStatus == "rejected") {
+                // 🔄 If rejected, change to pending
+                newStatus = "pending"
             }
-            .addOnFailureListener { e ->
-                android.util.Log.e("SAVE_PROFILE", "updateChildren failed: ${e.message}")
-                Toast.makeText(this, "Failed to save profile: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+
+            // Basic fields
+            val openingDay = binding.editOpeningDay.text?.toString()
+            val closingDay = binding.editClosingDay.text?.toString()
+            val clinicInfoMap = mutableMapOf<String, Any?>()
+            clinicInfoMap["name"] = binding.editClinicName.text?.toString()
+            clinicInfoMap["tagline"] = binding.editTagline.text?.toString()
+            clinicInfoMap["acceptingPatients"] = binding.acceptingPatientsCheckbox.isChecked
+            clinicInfoMap["contact"] = binding.editContact.text?.toString()
+            clinicInfoMap["email"] = binding.editEmail.text?.toString()
+            clinicInfoMap["address"] = binding.editAddress.text?.toString()
+            clinicInfoMap["status"] = newStatus
+            clinicInfoMap["operatingDays"] = "$openingDay - $closingDay"
+            clinicInfoMap["openingTime"] = binding.editOpeningTime.text?.toString()
+            clinicInfoMap["closingTime"] = binding.editClosingTime.text?.toString()
+            clinicInfoMap["about"] = binding.editAbout.text?.toString()
+            clinicInfoMap["services"] = servicesList
+            clinicInfoMap["dermatologists"] = dermatologistsList
+
+            // Images (only overwrite if changed)
+            selectedLogoImage?.let { clinicInfoMap["logoImage"] = encodeImage(it) }
+            selectedBIRImage?.let { clinicInfoMap["birImage"] = encodeImage(it) }
+            selectedPermitImage?.let { clinicInfoMap["businessPermitImage"] = encodeImage(it) }
+            selectedValidIdImage?.let { clinicInfoMap["validIdImage"] = encodeImage(it) }
+
+            // Write all changes
+            userRef.updateChildren(clinicInfoMap)
+                .addOnSuccessListener {
+                    Toast.makeText(this, "Clinic profile saved successfully!", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(this, "Failed to save profile: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+        }.addOnFailureListener {
+            Toast.makeText(this, "Failed to fetch current status: ${it.message}", Toast.LENGTH_SHORT).show()
+        }
     }
+
 
 
 

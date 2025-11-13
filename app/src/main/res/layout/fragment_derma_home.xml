@@ -8,6 +8,8 @@
     android:layout_height="match_parent"
     tools:context=".DermaHomeFragment">
 
+
+
     <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/mainContent"
         android:layout_width="match_parent"
@@ -15,6 +17,8 @@
         android:background="@color/white"
         android:scrollbars="vertical"
         >
+
+
 
         <androidx.cardview.widget.CardView
             android:id="@+id/profileCard"
@@ -413,58 +417,58 @@
 
 
 
-                <TextView
-                    android:id="@+id/textView45"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
-                    android:layout_marginTop="15dp"
-                    android:text="Top Discussion"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/recyclerView" />
+<!--                <TextView-->
+<!--                    android:id="@+id/textView45"-->
+<!--                    android:layout_width="wrap_content"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:layout_marginStart="15dp"-->
+<!--                    android:layout_marginTop="15dp"-->
+<!--                    android:text="Top Discussion"-->
+<!--                    android:textSize="15sp"-->
+<!--                    android:textStyle="bold"-->
+<!--                    app:layout_constraintStart_toStartOf="parent"-->
+<!--                    app:layout_constraintTop_toBottomOf="@+id/recyclerView" />-->
 
-                <androidx.cardview.widget.CardView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="15dp"
-                    android:layout_marginTop="5dp"
-                    android:layout_marginEnd="15dp"
-                    android:layout_marginBottom="100dp"
-                    app:cardCornerRadius="15dp"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/textView45">
+<!--                <androidx.cardview.widget.CardView-->
+<!--                    android:layout_width="match_parent"-->
+<!--                    android:layout_height="wrap_content"-->
+<!--                    android:layout_marginStart="15dp"-->
+<!--                    android:layout_marginTop="5dp"-->
+<!--                    android:layout_marginEnd="15dp"-->
+<!--                    android:layout_marginBottom="100dp"-->
+<!--                    app:cardCornerRadius="15dp"-->
+<!--                    app:layout_constraintEnd_toEndOf="parent"-->
+<!--                    app:layout_constraintStart_toStartOf="parent"-->
+<!--                    app:layout_constraintTop_toBottomOf="@+id/textView45">-->
 
 
-                    <LinearLayout
-                        android:id="@+id/topDiscussion"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical"
+<!--                    <LinearLayout-->
+<!--                        android:id="@+id/topDiscussion"-->
+<!--                        android:layout_width="match_parent"-->
+<!--                        android:layout_height="match_parent"-->
+<!--                        android:orientation="vertical"-->
 
-                        android:padding="15dp">
+<!--                        android:padding="15dp">-->
 
-                        <TextView
-                            android:id="@+id/byNameTextView"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="5dp"
-                            android:layout_marginTop="10dp"
-                            android:gravity="bottom"
-                            android:text="By: Name" />
+<!--                        <TextView-->
+<!--                            android:id="@+id/byNameTextView"-->
+<!--                            android:layout_width="wrap_content"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:layout_marginStart="5dp"-->
+<!--                            android:layout_marginTop="10dp"-->
+<!--                            android:gravity="bottom"-->
+<!--                            android:text="By: Name" />-->
 
-                        <TextView
-                            android:id="@+id/contentDiscuss"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_gravity="center_horizontal"
-                            android:text="Content Here"
-                            android:textStyle="bold" />
+<!--                        <TextView-->
+<!--                            android:id="@+id/contentDiscuss"-->
+<!--                            android:layout_width="wrap_content"-->
+<!--                            android:layout_height="wrap_content"-->
+<!--                            android:layout_gravity="center_horizontal"-->
+<!--                            android:text="Content Here"-->
+<!--                            android:textStyle="bold" />-->
 
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
+<!--                    </LinearLayout>-->
+<!--                </androidx.cardview.widget.CardView>-->
             </LinearLayout>
 
         </ScrollView>

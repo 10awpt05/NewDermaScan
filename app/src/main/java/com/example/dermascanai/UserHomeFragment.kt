@@ -32,6 +32,7 @@ import com.google.firebase.database.ValueEventListener
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
+import java.util.Locale
 
 
 class UserHomeFragment : Fragment() {
@@ -74,7 +75,7 @@ class UserHomeFragment : Fragment() {
         mAuth = FirebaseAuth.getInstance()
         mDatabase = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("userInfo")
 
-        val clinicList = mutableListOf<ClinicInfo>()
+//        val clinicList = mutableListOf<ClinicInfo>()
         val databaseRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("clinicInfo")
 
         val headerBinding = NavHeaderBinding.bind(navView.getHeaderView(0))
@@ -85,7 +86,7 @@ class UserHomeFragment : Fragment() {
 //            drawerLayout.closeDrawer(GravityCompat.END)
 //        }
 
-        displayTopBlogPost(binding)
+//        displayTopBlogPost(binding)
 
 
         binding.dateTimeText.text = formatted
@@ -104,7 +105,7 @@ class UserHomeFragment : Fragment() {
 //        val gridLayoutManager = GridLayoutManager(requireContext(), 2)
 //        binding.dermaRecycleView.layoutManager = gridLayoutManager
 //        binding.dermaRecycleView.adapter = AdapterDoctorList(clinicList)
-        binding.dermaRecycleView.setHasFixedSize(true)
+//        binding.dermaRecycleView.setHasFixedSize(true)
 
 
 //        val notifRecyclerView = notificationBinding.notificationRecyclerView
@@ -170,9 +171,16 @@ class UserHomeFragment : Fragment() {
             val intent = Intent(requireContext(), DoctorLists::class.java)
             startActivity(intent)
         }
-
+        val clinicList = mutableListOf<ClinicInfo>()
+        val adapter = AdapterDermaHomeList(clinicList)
+        binding.dermaRecycleView.setHasFixedSize(true)
         binding.dermaRecycleView.layoutManager =
             LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        binding.dermaRecycleView.adapter = adapter
+
+
+//        binding.dermaRecycleView.layoutManager =
+//            LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
 
 
 
@@ -282,50 +290,25 @@ class UserHomeFragment : Fragment() {
         // More robust error handling for the database query
         clinicEventListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                if (_binding == null) return // Check if view is still valid
+                if (_binding == null) return
 
                 clinicList.clear()
-                var count = 0
-
-                if (!snapshot.exists()) {
-                    Log.e("Database", "No data found at clinicInfo path")
-                    if (isAdded && context != null) {
-//                        Toast.makeText(requireContext(), "No clinic data available", Toast.LENGTH_SHORT).show()
-                    }
-                    return
-                }
-
                 for (userSnap in snapshot.children) {
-                    try {
-                        val user = userSnap.getValue(ClinicInfo::class.java)
-                        if (user != null) {
-                            println("User found: ${user.name}, role: ${user.role}")
-                            if (user.role.lowercase() == "derma") {
-                                clinicList.add(user)
-                                count++
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("Database", "Error deserializing clinic data", e)
+                    val user = userSnap.getValue(ClinicInfo::class.java)
+                    if (user?.role?.lowercase(Locale.ROOT) == "derma") {
+                        clinicList.add(user)
                     }
                 }
 
-                if (clinicList.isEmpty() && isAdded && context != null) {
-//                    Toast.makeText(requireContext(), "No derma clinics found", Toast.LENGTH_SHORT).show()
-                }
-
-                binding.dermaRecycleView.adapter = AdapterDermaHomeList(clinicList)
+                adapter.notifyDataSetChanged()
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Log.e("Database", "Database error: ${error.message}")
-                if (isAdded && context != null) {
-//                    Toast.makeText(requireContext(), "Failed to load clinics: ${error.message}", Toast.LENGTH_SHORT).show()
-                }
             }
         }
-
         databaseRef.addValueEventListener(clinicEventListener!!)
+
     }
 
     override fun onDestroyView() {
@@ -423,42 +406,5 @@ class UserHomeFragment : Fragment() {
 //        dialog.show()
 //    }
 
-    fun displayTopBlogPost(binding: FragmentHomeUserBinding) {
-        val blogPostsRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("blogPosts")
 
-        blogPostsRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                var topPost: BlogPost? = null
-
-                for (postSnapshot in snapshot.children) {
-                    val blogPost = postSnapshot.getValue(BlogPost::class.java)
-                    blogPost?.let {
-                        if (topPost == null ||
-                            (it.commentCount + it.likeCount) > (topPost!!.commentCount + topPost!!.likeCount)
-                        ) {
-                            topPost = it
-                        }
-                    }
-                }
-
-                topPost?.let { post ->
-                    binding.contentDiscuss.text = post.content
-                    binding.byNameTextView.text = "By: ${post.fullName}"
-
-                    binding.topDiscussion.setOnClickListener {
-                        val intent = Intent(binding.root.context, BlogView::class.java).apply {
-                            putExtra("fullName", post.fullName)
-                            putExtra("content", post.content)
-                            putExtra("id", post.postId)
-                        }
-                        binding.root.context.startActivity(intent)
-                    }
-                }
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(binding.root.context, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
-            }
-        })
-    }
 }

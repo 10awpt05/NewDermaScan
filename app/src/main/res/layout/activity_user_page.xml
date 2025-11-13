@@ -88,7 +88,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:src="@drawable/ic_scan_white"
-                    android:tint="@android:color/white"
+                    app:tint="@android:color/white"
                     android:backgroundTint="@color/main_green"
                     android:elevation="10dp"
                     android:translationZ="16dp" />
@@ -113,7 +113,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:src="@drawable/ic_blog_white"
-                    android:tint="@android:color/white"
+                    app:tint="@android:color/white"
                     android:backgroundTint="@color/main_green"
                     android:elevation="10dp"
                     android:translationZ="16dp" />
@@ -121,7 +121,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Blog"
+                    android:text="Forum"
                     android:textColor="@color/main_green"
                     android:textSize="12sp"
                     android:layout_marginTop="4dp" />
@@ -219,7 +219,7 @@
                 android:src="@drawable/ic_expandu"
                 android:backgroundTint="@color/main_green"
                 android:elevation="12dp"
-                android:tint="@android:color/white"
+                app:tint="@android:color/white"
                 android:translationZ="16dp" />
         </androidx.cardview.widget.CardView>
 

@@ -31,7 +31,7 @@ import android.content.Context
 import android.content.IntentFilter
 import android.net.ConnectivityManager
 import androidx.appcompat.app.AlertDialog
-
+import com.bumptech.glide.Glide
 
 
 class DermaPage : AppCompatActivity() {
@@ -43,6 +43,9 @@ class DermaPage : AppCompatActivity() {
 
     private lateinit var database: FirebaseDatabase
     private lateinit var mAuth: FirebaseAuth
+
+    private lateinit var loadingOverlay: View
+    private lateinit var loadingGif: ImageView
 
     private lateinit var notificationBinding: LayoutNotificationPopupBinding
     private lateinit var notificationAdapter: NotificationAdapter
@@ -61,7 +64,6 @@ class DermaPage : AppCompatActivity() {
     private var isTabSwitching = false
 
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityDermaPageBinding.inflate(layoutInflater)
@@ -69,6 +71,16 @@ class DermaPage : AppCompatActivity() {
 
         val drawerLayout = binding.drawerLayout
         val navView = binding.navigationView
+
+        loadingOverlay = binding.loadingOverlay
+        loadingGif = binding.loadingGif
+
+        Glide.with(this)
+            .asGif()
+            .load(R.drawable.ic_loading) // your GIF file
+            .into(loadingGif)
+
+        PermissionHelper.requestNotificationPermission(this)
 
         database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mAuth = FirebaseAuth.getInstance()
@@ -215,6 +227,18 @@ class DermaPage : AppCompatActivity() {
 
 
     }
+    fun showLoading() {
+        loadingOverlay.visibility = View.VISIBLE
+        loadingOverlay.isClickable = true
+        loadingOverlay.isFocusable = true
+    }
+
+    fun hideLoading() {
+        loadingOverlay.visibility = View.GONE
+        loadingOverlay.isClickable = false
+        loadingOverlay.isFocusable = false
+    }
+
 
     private fun registerNetworkReceiver() {
         networkReceiver = object : BroadcastReceiver() {

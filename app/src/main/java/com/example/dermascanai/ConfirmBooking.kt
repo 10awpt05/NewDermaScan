@@ -16,20 +16,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.dermascanai.databinding.ActivityConfirmBookingBinding
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.google.firebase.database.*
 
 class ConfirmBooking : AppCompatActivity() {
     private lateinit var binding: ActivityConfirmBookingBinding
     private lateinit var database: DatabaseReference
     private lateinit var firebase: FirebaseDatabase
     private lateinit var auth: FirebaseAuth
+
     private val emojiList = listOf(
         "😊", "😂", "😍", "😢", "👍", "👋", "🙏", "🤝", "✌️", "👎",
         "❤️", "🤔", "🙄", "😎", "😡", "🤗", "👏", "🖐️", "✋", "🫶"
@@ -53,15 +47,15 @@ class ConfirmBooking : AppCompatActivity() {
 
         val emojiIcon = findViewById<ImageView>(R.id.emojiIcon)
 
-        // Get values from intent
+        // ✅ Get values from intent (including time)
         selectedDate = intent.getStringExtra("selectedDate") ?: ""
-        selectedTime = intent.getStringExtra("selectedTime") ?: "Any available time"
+        selectedTime = intent.getStringExtra("selectedTimeSlot") ?: "Not specified"
         selectedService = intent.getStringExtra("selectedService") ?: ""
         clinicName = intent.getStringExtra("clinicName") ?: ""
         timestampMillis = intent.getLongExtra("timestampMillis", System.currentTimeMillis())
         bookingId = intent.getStringExtra("bookingId") ?: System.currentTimeMillis().toString()
 
-        // Get current user email and set patient email
+        // ✅ Get current user email
         val currentUserEmail = auth.currentUser?.email
         patientEmail = intent.getStringExtra("patientEmail") ?: ""
         if (patientEmail.isEmpty()) {
@@ -77,44 +71,33 @@ class ConfirmBooking : AppCompatActivity() {
             return
         }
 
-        emojiIcon.setOnClickListener {
-            showEmojiPopup(it)
-        }
+        emojiIcon.setOnClickListener { showEmojiPopup(it) }
 
         fetchUserData(clinicName)
 
-        binding.backBTN.setOnClickListener {
-            finish()
-        }
+        binding.backBTN.setOnClickListener { finish() }
 
-        // Set selected date only (removed time display)
+        // ✅ Display date, time, and service on screen
         binding.date.text = selectedDate
+        binding.timeSlot.text = selectedTime
+        binding.serviceText.text = selectedService
 
-        // Add service display - make sure you have a TextView for this in your layout
-        try {
-            binding.serviceText.text = selectedService
-        } catch (e: Exception) {
-            Log.e("ConfirmBooking", "Error setting service text: ${e.message}")
-        }
 
+        // ✅ Confirm button click
         binding.confirm.setOnClickListener {
             if (patientEmail.isEmpty()) {
                 Toast.makeText(this, "You must be logged in to book an appointment", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Validate that message is not empty
             val messageText = binding.messageEditText.text.toString().trim()
             if (messageText.isEmpty()) {
                 Toast.makeText(this, "Please enter a message", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // Check if user already has a booking before proceeding
-            checkExistingBooking()
+            checkExistingBooking(selectedDate)
         }
-
-
     }
 
     private fun fetchUserData(clinicNameParam: String) {
@@ -136,7 +119,8 @@ class ConfirmBooking : AppCompatActivity() {
                                         val decodedBytes = Base64.decode(it, Base64.DEFAULT)
                                         val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
                                         binding.profPic.setImageBitmap(bitmap)
-                                        binding.time.text = dermaInfo.clinicOpenTime +" - "+ dermaInfo.clinicCloseTime + " : " + dermaInfo.clinicOpenDay +" - "+ dermaInfo.clinicCloseDay
+                                        binding.time.text =
+                                            "${dermaInfo.clinicOpenTime} - ${dermaInfo.clinicCloseTime} : ${dermaInfo.clinicOpenDay} - ${dermaInfo.clinicCloseDay}"
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
@@ -155,50 +139,45 @@ class ConfirmBooking : AppCompatActivity() {
         })
     }
 
-    /**
-     * Check if the user already has an existing booking
-     * Only allow one active booking per user (pending, confirmed status)
-     */
-    private fun checkExistingBooking() {
+    private fun checkExistingBooking(selectedDate: String) {
         val userBookingsRef = firebase.getReference("userBookings").child(patientEmail.replace(".", ","))
 
         userBookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                var hasActiveBooking = false
+                var hasSameDayBooking = false
 
-                // Check all user's bookings
                 for (bookingSnapshot in snapshot.children) {
                     val bookingData = bookingSnapshot.value as? HashMap<String, Any>
                     val status = bookingData?.get("status") as? String
+                    val date = bookingData?.get("date") as? String
 
-                    // Consider booking as active if it's pending or confirmed
-                    if (status == "pending" || status == "confirmed") {
-                        hasActiveBooking = true
+                    // Check if same date and booking not cancelled
+                    if (date == selectedDate && status != "cancelled") {
+                        hasSameDayBooking = true
                         break
                     }
                 }
 
-                if (hasActiveBooking) {
+                if (hasSameDayBooking) {
                     Toast.makeText(
                         this@ConfirmBooking,
-                        "You already have an active booking. Please complete or cancel your existing booking before making a new one.",
+                        "You already have a booking on this date. Please choose another day or cancel your existing booking.",
                         Toast.LENGTH_LONG
                     ).show()
                 } else {
-                    // User doesn't have an active booking, proceed with new booking
                     saveBookingToFirebase()
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(this@ConfirmBooking, "Error checking existing bookings: ${error.message}", Toast.LENGTH_SHORT).show()
-                Log.e("ConfirmBooking", "Error checking existing bookings", error.toException())
+                Toast.makeText(this@ConfirmBooking, "Error checking bookings: ${error.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
+
     private fun fetchClinicId(clinicName: String, onResult: (String?) -> Unit) {
-        val clinicsRef = FirebaseDatabase.getInstance().getReference("clinicInfo")
+        val clinicsRef = firebase.getReference("clinicInfo")
 
         clinicsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -206,11 +185,11 @@ class ConfirmBooking : AppCompatActivity() {
                 for (clinicSnap in snapshot.children) {
                     val name = clinicSnap.child("name").getValue(String::class.java)
                     if (name == clinicName) {
-                        clinicId = clinicSnap.key // <- found clinicId
+                        clinicId = clinicSnap.key
                         break
                     }
                 }
-                onResult(clinicId) // return clinicId
+                onResult(clinicId)
             }
 
             override fun onCancelled(error: DatabaseError) {
@@ -219,29 +198,19 @@ class ConfirmBooking : AppCompatActivity() {
         })
     }
 
-
+    // ✅ Modified to include selectedTime
     private fun saveBookingToFirebase() {
         val messageText = binding.messageEditText.text.toString().trim()
 
-        if (messageText.isEmpty()) {
-            Toast.makeText(this, "Please enter a message", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        // Generate bookingId if not already set
         val bookingId = firebase.reference.push().key ?: System.currentTimeMillis().toString()
-
-        // Logged-in user ID
         val userId = auth.currentUser?.uid ?: patientEmail.replace(".", ",")
 
-        // 🔥 Fetch real clinicId from Firebase
         fetchClinicId(clinicName) { clinicId ->
             if (clinicId == null) {
                 Toast.makeText(this, "Clinic not found", Toast.LENGTH_SHORT).show()
                 return@fetchClinicId
             }
 
-            // ✅ Now we have the correct clinicId
             val booking = HashMap<String, Any>()
             booking["bookingId"] = bookingId
             booking["userId"] = userId
@@ -249,33 +218,25 @@ class ConfirmBooking : AppCompatActivity() {
             booking["clinicId"] = clinicId
             booking["clinicName"] = clinicName
             booking["date"] = selectedDate
+            booking["time"] = selectedTime // ✅ added time here
             booking["service"] = selectedService
             booking["message"] = messageText
-            booking["status"] = "pending" // pending, confirmed, cancelled, completed
+            booking["status"] = "pending"
             booking["timestampMillis"] = timestampMillis
             booking["createdAt"] = System.currentTimeMillis()
 
-            // 1. Save to master bookings
-            val bookingsRef = firebase.getReference("bookings").child(bookingId)
-            bookingsRef.setValue(booking)
+            // Save to Firebase under multiple paths
+            val rootRef = firebase.reference
+            val updates = hashMapOf<String, Any>(
+                "/bookings/$bookingId" to booking,
+                "/userInfo/$userId/bookings/$bookingId" to booking,
+                "/clinicInfo/$clinicId/bookings/$bookingId" to booking,
+                "/userBookings/${patientEmail.replace(".", ",")}/$bookingId" to booking
+            )
+
+            rootRef.updateChildren(updates)
                 .addOnSuccessListener {
-                    // 2. Save to user's sub-collection
-                    val userBookingRef = firebase.getReference("userInfo")
-                        .child(userId)
-                        .child("bookings")
-                        .child(bookingId)
-                    userBookingRef.setValue(booking)
-
-                    // 3. Save to clinic's sub-collection
-                    val clinicBookingRef = firebase.getReference("clinicInfo")
-                        .child(clinicId)
-                        .child("bookings")
-                        .child(bookingId)
-                    clinicBookingRef.setValue(booking)
-
                     Toast.makeText(this, "Booking confirmed successfully!", Toast.LENGTH_SHORT).show()
-
-                    // Go back to user page
                     val intent = Intent(this, UserPage::class.java)
                     intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                     startActivity(intent)
@@ -287,8 +248,6 @@ class ConfirmBooking : AppCompatActivity() {
                 }
         }
     }
-
-
 
     private fun showEmojiPopup(anchor: View) {
         val popupView = layoutInflater.inflate(R.layout.emoji_popup, null)
@@ -302,7 +261,6 @@ class ConfirmBooking : AppCompatActivity() {
         gridView.adapter = adapter
 
         val messageEditText = findViewById<EditText>(R.id.messageEditText)
-
         gridView.setOnItemClickListener { _, _, position, _ ->
             val emoji = emojiList[position]
             messageEditText.append(emoji)

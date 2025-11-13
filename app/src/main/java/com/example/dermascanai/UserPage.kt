@@ -51,18 +51,17 @@ class UserPage : AppCompatActivity() {
         private lateinit var notificationAdapter: NotificationAdapter
         private val notificationList = mutableListOf<Notification>()
 
-
-    private var noInternetDialog: AlertDialog? = null
-    private lateinit var networkReceiver: BroadcastReceiver
-    private var retryCount = 0
-    private val maxRetries = 3
+        private var noInternetDialog: AlertDialog? = null
+        private lateinit var networkReceiver: BroadcastReceiver
+        private var retryCount = 0
+        private val maxRetries = 3
 
 
 
     private val notificationRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
             .getReference("notifications")
 
-        private var selectedTab = "home" // Track selected tab
+        private var selectedTab = "home"
 
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
@@ -77,6 +76,8 @@ class UserPage : AppCompatActivity() {
 
             val headerView = navView.getHeaderView(0)
             val closeDrawerBtn = headerView.findViewById<ImageView>(R.id.closeDrawerBtn)
+
+            PermissionHelper.requestNotificationPermission(this)
 
             notificationBinding = LayoutNotificationPopupBinding.inflate(layoutInflater)
             val popupWindow = PopupWindow(

@@ -44,6 +44,7 @@ class AdapterDermaHomeList(private val userList: List<ClinicInfo>) :
                 val context = it.context
                 val intent = Intent(context, ClinicDetails::class.java).apply {
                     putExtra("email", user.email)
+
                 }
                 context.startActivity(intent)
             }

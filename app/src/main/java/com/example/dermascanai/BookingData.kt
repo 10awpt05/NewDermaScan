@@ -14,5 +14,6 @@ data class BookingData(
     val service: String = "",
     val status: String = "pending",
     var declineReason: String? = null,
-    var cancellationReason: String? = null
+    var cancellationReason: String? = null,
+    val time: String = ""
 ) : Serializable

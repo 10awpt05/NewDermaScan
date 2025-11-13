@@ -1,6 +1,9 @@
 package com.example.dermascanai
 
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -8,6 +11,8 @@ import android.widget.ImageView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.bumptech.glide.Glide
@@ -18,7 +23,10 @@ import com.google.firebase.database.DatabaseReference
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
 import com.google.firebase.database.DatabaseError
+import com.google.firebase.messaging.FirebaseMessaging
 import pl.droidsonroids.gif.GifDrawable
+import androidx.appcompat.app.AlertDialog
+import androidx.core.content.pm.PackageInfoCompat
 
 
 class Login : AppCompatActivity() {
@@ -26,6 +34,8 @@ class Login : AppCompatActivity() {
     private lateinit var mAuth: FirebaseAuth
     private lateinit var mDatabase: DatabaseReference
     private lateinit var dDatabase: DatabaseReference
+
+    private var updateCheckCompleted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,11 +46,17 @@ class Login : AppCompatActivity() {
         val database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mDatabase = database.getReference("userInfo")
         dDatabase = database.getReference("clinicInfo")
-        val currentUser = mAuth.currentUser
-        if (currentUser != null){
 
-            redirectToRolePage()
-        }
+
+        checkForUpdate()
+        PermissionHelper.requestNotificationPermission(this)
+
+//        val currentUser = mAuth.currentUser
+//
+//        if (currentUser != null){
+//
+//            redirectToRolePage()
+//        }
 
 
 
@@ -89,65 +105,81 @@ class Login : AppCompatActivity() {
                         Log.d("LoginActivity", "User role: $role")
 
                         if (role != null) {
+                            // 🔹 Save FCM token under correct node
+                            FirebaseMessaging.getInstance().token.addOnCompleteListener { tokenTask ->
+                                if (tokenTask.isSuccessful) {
+                                    val token = tokenTask.result
+                                    val node = if (role == "derma") "clinicInfo" else "userInfo"
+                                    FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+                                        .getReference(node)
+                                        .child(userId)
+                                        .child("fcmToken")
+                                        .setValue(token)
+                                }
+                            }
+
                             val intent = when (role) {
                                 "derma" -> Intent(this@Login, DermaPage::class.java)
                                 "user" -> Intent(this@Login, UserPage::class.java)
-                                "admin" -> Intent(this@Login, AdminPage::class.java)
-                                else -> {
-                                    Toast.makeText(this@Login, "Unknown role", Toast.LENGTH_SHORT).show()
-                                    null
-                                }
+                                else -> null
                             }
-                            intent?.let {
 
+                            intent?.let {
                                 startActivity(it)
-                                finish()  // Close login screen after successful redirection
+                                finish()
                                 hideProgressBar()
                             }
                         } else {
+                            // check in clinicInfo if not found in userInfo
                             dDatabase.child(userId).child("role")
                                 .addListenerForSingleValueEvent(object : ValueEventListener {
                                     override fun onDataChange(dataSnapshot: DataSnapshot) {
                                         val role = dataSnapshot.getValue(String::class.java)
-                                        Log.d("LoginActivity", "User role: $role")
 
                                         if (role != null) {
+                                            // 🔹 Save token for derma users
+                                            FirebaseMessaging.getInstance().token.addOnCompleteListener { tokenTask ->
+                                                if (tokenTask.isSuccessful) {
+                                                    val token = tokenTask.result
+                                                    val node = if (role == "derma") "clinicInfo" else "userInfo"
+                                                    FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+                                                        .getReference(node)
+                                                        .child(userId)
+                                                        .child("fcmToken")
+                                                        .setValue(token)
+                                                }
+                                            }
+
                                             val intent = when (role) {
                                                 "derma" -> Intent(this@Login, DermaPage::class.java)
                                                 "user" -> Intent(this@Login, UserPage::class.java)
-                                                "admin" -> Intent(this@Login, AdminPage::class.java)
-                                                else -> {
-                                                    Toast.makeText(this@Login, "Unknown role", Toast.LENGTH_SHORT).show()
-                                                    null
-                                                }
+                                                else -> null
                                             }
-                                            intent?.let {
 
+                                            intent?.let {
                                                 startActivity(it)
-                                                finish()  // Close login screen after successful redirection
+                                                finish()
                                                 hideProgressBar()
                                             }
                                         } else {
                                             hideProgressBar()
-//                                            Toast.makeText(this@Login, "No role found for this user", Toast.LENGTH_SHORT).show()
                                         }
                                     }
 
-                                    override fun onCancelled(databaseError: DatabaseError) {
+                                    override fun onCancelled(error: DatabaseError) {
                                         hideProgressBar()
-//                                        Toast.makeText(this@Login, "Error: ${databaseError.message}", Toast.LENGTH_SHORT).show()
                                     }
                                 })
                         }
                     }
 
-                    override fun onCancelled(databaseError: DatabaseError) {
+                    override fun onCancelled(error: DatabaseError) {
                         hideProgressBar()
-                        Toast.makeText(this@Login, "Error: ${databaseError.message}", Toast.LENGTH_SHORT).show()
                     }
                 })
         }
     }
+
 
     private fun forgotPassword() {
         val email = binding.email.text.toString().trim()
@@ -180,5 +212,78 @@ class Login : AppCompatActivity() {
         val gifDrawable = binding.animatedProgressBar.drawable as? GifDrawable
         gifDrawable?.stop() // optional: stop playback if still running
         binding.progressContainer.visibility = View.GONE
+    }
+
+
+    private fun checkForUpdate() {
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, 0)
+            val currentVersionCode = PackageInfoCompat.getLongVersionCode(packageInfo).toInt()
+
+            val db = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
+                .getReference("app_info")
+
+            db.get().addOnSuccessListener { snapshot ->
+                val latestVersionCode = snapshot.child("latest_version_code").getValue(Int::class.java) ?: currentVersionCode
+                val downloadUrl = snapshot.child("download_url").getValue(String::class.java)
+
+                if (latestVersionCode > currentVersionCode) {
+                    // Show update popup — do not auto-login yet
+                    showUpdateDialog(downloadUrl)
+                } else {
+                    updateCheckCompleted = true
+                    proceedIfReady()
+                }
+            }.addOnFailureListener {
+                Log.e("UpdateCheck", "Failed to fetch version info: ${it.message}")
+                updateCheckCompleted = true
+                proceedIfReady()
+            }
+
+        } catch (e: Exception) {
+            Log.e("UpdateCheck", "Error checking app version: ${e.message}")
+            updateCheckCompleted = true
+            proceedIfReady()
+        }
+    }
+
+    private fun showUpdateDialog(downloadUrl: String?) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Update Available")
+        builder.setMessage("A new version of DermaScanAI is available. Please update to get the latest features and fixes.")
+
+        builder.setPositiveButton("Update") { _, _ ->
+            if (!downloadUrl.isNullOrEmpty()) {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(downloadUrl))
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Unable to open link", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Download link not available", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        builder.setNegativeButton("Cancel") { dialog, _ ->
+            dialog.dismiss()
+            updateCheckCompleted = true
+            proceedIfReady()
+        }
+
+        builder.setCancelable(false)
+        builder.create().show()
+    }
+
+
+    private fun proceedIfReady() {
+        // ✅ This runs only after update check is done
+        if (updateCheckCompleted) {
+            val currentUser = mAuth.currentUser
+            if (currentUser != null) {
+                redirectToRolePage()
+            }
+        }
     }
 }

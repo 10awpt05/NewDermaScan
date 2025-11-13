@@ -76,7 +76,7 @@ class ClinicDetails : AppCompatActivity(), OnMapReadyCallback {
         binding.messageMe.setOnClickListener {
             currentClinicId?.let { clinicId ->
                 val intent = Intent(this, MessageMe::class.java)
-                intent.putExtra("receiverId", clinicId)  // 👈 pass clinic ID instead of email
+                intent.putExtra("receiverId", clinicId)
                 startActivity(intent)
             } ?: run {
                 Toast.makeText(this, "Clinic ID not found", Toast.LENGTH_SHORT).show()
@@ -129,7 +129,8 @@ class ClinicDetails : AppCompatActivity(), OnMapReadyCallback {
                             city = map["city"] as? String,
                             barangay = map["barangay"] as? String,
                             profileImage = map["profileImage"] as? String,
-                            stability = (map["stability"] as? Long)?.toInt(),
+//                            stableLevel = (map["stableLevel"] as? Long)?.toInt(),
+
                             quote = map["quote"] as? String,
                             bio = map["bio"] as? String,
                             verificationImg = map["verificationImg"] as? String,
@@ -144,7 +145,7 @@ class ClinicDetails : AppCompatActivity(), OnMapReadyCallback {
                             closingTime = map["closingTime"] as? String,
                             about = map["about"] as? String,
                             logoImage = map["logoImage"] as? String,
-                            isStable = map["isStable"] as? Boolean ?: false,
+//                            clinicStable = map["clinicStable"] as? Boolean ?: false,
 //                            birDocument = map["birDocument"] as? String,
 //                            permitDocument = map["permitDocument"] as? String,
                             services = (map["services"] as? List<String>),

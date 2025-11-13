@@ -1,6 +1,7 @@
 package com.example.dermascanai
 
 import android.os.Parcelable
+import com.google.firebase.database.Exclude
 import kotlinx.parcelize.Parcelize
 
 
@@ -19,7 +20,7 @@ data class ClinicInfo(
     var barangay: String? = null,
 //    var phone: String? = null,
     val profileImage: String? = null,
-    var stability: Int? = null,
+//    var stableLevel: Int? = null,
 
     var quote: String? = null,
     var bio: String? = null,
@@ -35,7 +36,8 @@ data class ClinicInfo(
     val closingTime: String? = null,
     val about: String? = null,
     val logoImage: String? = null,
-    val isStable: Boolean = false,
+//    @get:Exclude
+//    val clinicStable: Boolean = false,
 //    val birDocument: String? = null,
 //    val permitDocument: String? = null,
     val services: List<String>? = null,
