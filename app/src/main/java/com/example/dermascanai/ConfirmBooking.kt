@@ -96,8 +96,13 @@ class ConfirmBooking : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            checkExistingBooking(selectedDate)
+            checkExistingBooking(selectedDate) { canBook ->
+                if (canBook) {
+                    bookWithSlotCheck()
+                }
+            }
         }
+
     }
 
     private fun fetchUserData(clinicNameParam: String) {
@@ -139,7 +144,7 @@ class ConfirmBooking : AppCompatActivity() {
         })
     }
 
-    private fun checkExistingBooking(selectedDate: String) {
+    private fun checkExistingBooking(selectedDate: String, callback: (Boolean) -> Unit) {
         val userBookingsRef = firebase.getReference("userBookings").child(patientEmail.replace(".", ","))
 
         userBookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
@@ -151,7 +156,6 @@ class ConfirmBooking : AppCompatActivity() {
                     val status = bookingData?.get("status") as? String
                     val date = bookingData?.get("date") as? String
 
-                    // Check if same date and booking not cancelled
                     if (date == selectedDate && status != "cancelled") {
                         hasSameDayBooking = true
                         break
@@ -164,13 +168,67 @@ class ConfirmBooking : AppCompatActivity() {
                         "You already have a booking on this date. Please choose another day or cancel your existing booking.",
                         Toast.LENGTH_LONG
                     ).show()
+                    callback(false)
                 } else {
-                    saveBookingToFirebase()
+                    callback(true)
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
                 Toast.makeText(this@ConfirmBooking, "Error checking bookings: ${error.message}", Toast.LENGTH_SHORT).show()
+                callback(false)
+            }
+        })
+    }
+    private fun getAvailableSlots(
+        clinicId: String,
+        date: String,
+        time: String,
+        callback: (Int) -> Unit
+    ) {
+        val scheduleRef = firebase.reference
+            .child("clinicInfo")
+            .child(clinicId)
+            .child("schedule")
+            .child(date)
+            .child(time)
+
+        scheduleRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+
+                // If slot value missing → create default = 5
+                val totalSlots = snapshot.getValue(Int::class.java) ?: 5
+
+                // Now count booked slots
+                val bookingsRef = firebase.reference.child("bookings")
+
+                bookingsRef.orderByChild("clinicId").equalTo(clinicId)
+                    .addListenerForSingleValueEvent(object : ValueEventListener {
+                        override fun onDataChange(bookingsSnap: DataSnapshot) {
+                            var bookedCount = 0
+
+                            for (booking in bookingsSnap.children) {
+                                val bDate = booking.child("date").getValue(String::class.java)
+                                val bTime = booking.child("time").getValue(String::class.java)
+                                val status = booking.child("status").getValue(String::class.java)
+
+                                if (bDate == date && bTime == time && status != "cancelled") {
+                                    bookedCount++
+                                }
+                            }
+
+                            val available = totalSlots - bookedCount
+                            callback(available)
+                        }
+
+                        override fun onCancelled(error: DatabaseError) {
+                            callback(0)
+                        }
+                    })
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                callback(0)
             }
         })
     }
@@ -197,57 +255,71 @@ class ConfirmBooking : AppCompatActivity() {
             }
         })
     }
-
-    // ✅ Modified to include selectedTime
-    private fun saveBookingToFirebase() {
-        val messageText = binding.messageEditText.text.toString().trim()
-
-        val bookingId = firebase.reference.push().key ?: System.currentTimeMillis().toString()
-        val userId = auth.currentUser?.uid ?: patientEmail.replace(".", ",")
-
+    private fun bookWithSlotCheck() {
         fetchClinicId(clinicName) { clinicId ->
             if (clinicId == null) {
                 Toast.makeText(this, "Clinic not found", Toast.LENGTH_SHORT).show()
                 return@fetchClinicId
             }
 
-            val booking = HashMap<String, Any>()
-            booking["bookingId"] = bookingId
-            booking["userId"] = userId
-            booking["patientEmail"] = patientEmail
-            booking["clinicId"] = clinicId
-            booking["clinicName"] = clinicName
-            booking["date"] = selectedDate
-            booking["time"] = selectedTime // ✅ added time here
-            booking["service"] = selectedService
-            booking["message"] = messageText
-            booking["status"] = "pending"
-            booking["timestampMillis"] = timestampMillis
-            booking["createdAt"] = System.currentTimeMillis()
+            getAvailableSlots(clinicId, selectedDate, selectedTime) { availableSlots ->
 
-            // Save to Firebase under multiple paths
-            val rootRef = firebase.reference
-            val updates = hashMapOf<String, Any>(
-                "/bookings/$bookingId" to booking,
-                "/userInfo/$userId/bookings/$bookingId" to booking,
-                "/clinicInfo/$clinicId/bookings/$bookingId" to booking,
-                "/userBookings/${patientEmail.replace(".", ",")}/$bookingId" to booking
-            )
+                if (availableSlots <= 0) {
+                    Toast.makeText(this, "No available slots at this time.", Toast.LENGTH_SHORT).show()
+                    return@getAvailableSlots
+                }
 
-            rootRef.updateChildren(updates)
-                .addOnSuccessListener {
-                    Toast.makeText(this, "Booking confirmed successfully!", Toast.LENGTH_SHORT).show()
-                    val intent = Intent(this, UserPage::class.java)
-                    intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-                    startActivity(intent)
-                    finish()
-                }
-                .addOnFailureListener { e ->
-                    Toast.makeText(this, "Error saving booking: ${e.message}", Toast.LENGTH_SHORT).show()
-                    Log.e("ConfirmBooking", "Error saving booking", e)
-                }
+                saveBookingToFirebase(clinicId)
+            }
         }
     }
+
+
+
+
+    // ✅ Modified to include selectedTime
+    private fun saveBookingToFirebase(clinicId: String) {
+        val messageText = binding.messageEditText.text.toString().trim()
+
+        val bookingId = firebase.reference.push().key ?: System.currentTimeMillis().toString()
+        val userId = auth.currentUser?.uid ?: patientEmail.replace(".", ",")
+
+        val booking = HashMap<String, Any>()
+        booking["bookingId"] = bookingId
+        booking["userId"] = userId
+        booking["patientEmail"] = patientEmail
+        booking["clinicId"] = clinicId
+        booking["clinicName"] = clinicName
+        booking["date"] = selectedDate
+        booking["time"] = selectedTime
+        booking["service"] = selectedService
+        booking["message"] = messageText
+        booking["status"] = "pending"
+        booking["timestampMillis"] = timestampMillis
+        booking["createdAt"] = System.currentTimeMillis()
+
+        // Save to Firebase under multiple paths
+        val rootRef = firebase.reference
+        val updates = hashMapOf<String, Any>(
+            "/bookings/$bookingId" to booking,
+            "/userInfo/$userId/bookings/$bookingId" to booking,
+            "/clinicInfo/$clinicId/bookings/$bookingId" to booking,
+            "/userBookings/${patientEmail.replace(".", ",")}/$bookingId" to booking
+        )
+
+        rootRef.updateChildren(updates)
+            .addOnSuccessListener {
+                Toast.makeText(this, "Booking confirmed successfully!", Toast.LENGTH_SHORT).show()
+                val intent = Intent(this, UserPage::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                startActivity(intent)
+                finish()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(this, "Error saving booking: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+    }
+
 
     private fun showEmojiPopup(anchor: View) {
         val popupView = layoutInflater.inflate(R.layout.emoji_popup, null)

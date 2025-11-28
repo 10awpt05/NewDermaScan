@@ -232,7 +232,37 @@
                 android:layout_height="1dp"
                 android:layout_margin="10dp"
                 android:background="#CCCCCC" />
+            <LinearLayout
+                android:id="@+id/records"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:background="@color/white"
+                android:padding="17dp">
 
+                <ImageView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:contentDescription="Patient Records"
+                    android:src="@drawable/ic_patientrecords"
+                    app:tint="@color/main_green"/>
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:text="Patient Records"
+                    android:textColor="@color/black"
+                    android:textSize="16sp" />
+            </LinearLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_margin="10dp"
+                android:background="#CCCCCC" />
             <LinearLayout
                 android:id="@+id/scanRec"
                 android:layout_width="match_parent"

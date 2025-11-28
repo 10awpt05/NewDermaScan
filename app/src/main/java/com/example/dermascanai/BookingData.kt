@@ -7,6 +7,7 @@ data class BookingData(
     val userId: String? = null,
     val clinicName: String? = "",
     val patientEmail: String = "",
+    val patientName: String? = null,
     val doctorEmail: String = "",
     val message: String = "",
     val timestampMillis: Long = 0,
@@ -15,5 +16,6 @@ data class BookingData(
     val status: String = "pending",
     var declineReason: String? = null,
     var cancellationReason: String? = null,
-    val time: String = ""
+    val time: String = "",
+    val date: String = ""
 ) : Serializable

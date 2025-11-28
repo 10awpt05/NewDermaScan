@@ -10,5 +10,5 @@ data class Dermatologist(
     var email: String? = null,
     var phone: Int? = null,
     var logoImage: String? = null,
-    var stability: Int? = null,
+//    var stability: Int? = null,
 ) : Parcelable

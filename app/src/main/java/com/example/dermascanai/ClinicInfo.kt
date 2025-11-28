@@ -1,7 +1,6 @@
 package com.example.dermascanai
 
 import android.os.Parcelable
-import com.google.firebase.database.Exclude
 import kotlinx.parcelize.Parcelize
 
 
@@ -18,9 +17,7 @@ data class ClinicInfo(
     var province: String? = null,
     var city: String? = null,
     var barangay: String? = null,
-//    var phone: String? = null,
-    val profileImage: String? = null,
-//    var stableLevel: Int? = null,
+    var profileImage: String? = null,
 
     var quote: String? = null,
     var bio: String? = null,
@@ -28,25 +25,21 @@ data class ClinicInfo(
     var feedback: String? = null,
     var street: String? = null,
     var postalCode: String? = null,
-    val tagline: String? = null,
-    val acceptingPatients: Boolean? = null,
-    val address: String? = null,
-    val operatingDays: String? = null,
-    val openingTime: String? = null,
-    val closingTime: String? = null,
-    val about: String? = null,
-    val logoImage: String? = null,
-//    @get:Exclude
-//    val clinicStable: Boolean = false,
-//    val birDocument: String? = null,
-//    val permitDocument: String? = null,
-    val services: List<String>? = null,
-    val dermatologists: List<Dermatologist>? = null,
+    var tagline: String? = null,
+    var acceptingPatients: Boolean? = null,
+    var address: String? = null,
+    var operatingDays: String? = null,
+    var openingTime: String? = null,
+    var closingTime: String? = null,
+    var about: String? = null,
+    var logoImage: String? = null,
+    var services: List<String>? = null,
+    var dermatologists: List<Dermatologist>? = null,
 
-    val specialization: String = "",
-    val description: String = "",
+    var specialization: String = "",
+    var description: String = "",
     var rating: Float? = 0.0f,
-    val availability: String = "",
+    var availability: String = "",
 
     // Clinic Information combined here
     var clinicName: String? = null,
@@ -63,5 +56,8 @@ data class ClinicInfo(
     // Additional uploaded documents
     var birImage: String? = null,
     var businessPermitImage: String? = null,
-    var validIdImage: String? = null
+    var validIdImage: String? = null,
+
+
+
 ) : Parcelable

@@ -78,6 +78,11 @@ class DermaProfileFragment : Fragment() {
             startActivity(intent)
         }
 
+        binding.records.setOnClickListener {
+            val intent = Intent(requireContext(), ReportsHistory::class.java)
+            startActivity(intent)
+        }
+
         binding.scanRec.setOnClickListener {
             val intent = Intent(requireContext(), ScanRecords::class.java)
             startActivity(intent)

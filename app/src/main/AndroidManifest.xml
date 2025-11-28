@@ -29,6 +29,12 @@
         android:theme="@style/Theme.DermaScanAI"
         tools:targetApi="31">
         <activity
+            android:name=".ReportInfo"
+            android:exported="false" />
+        <activity
+            android:name=".ReportsHistory"
+            android:exported="false" />
+        <activity
             android:name=".ClinicOTPAuth"
             android:exported="false" />
         <activity
@@ -201,7 +207,6 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-
     </application>
 
 </manifest>

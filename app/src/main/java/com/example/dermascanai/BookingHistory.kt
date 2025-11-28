@@ -1,5 +1,6 @@
 package com.example.dermascanai
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -35,6 +36,7 @@ class BookingHistory : AppCompatActivity() {
     private var userBookingsListener: ValueEventListener? = null
     private var currentFilter = "pending"
     private var isDatabaseInitialized = false
+    private lateinit var swipeRefreshLayout: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,8 +48,16 @@ class BookingHistory : AppCompatActivity() {
         binding.backBtn.setOnClickListener {
             finish()
         }
+        swipeRefreshLayout = binding.swipeRefreshLayout
+        swipeRefreshLayout.setOnRefreshListener {
+            Log.d("BookingHistory", "Pull-to-refresh triggered")
+            loadAppointments()
+        }
         loadAppointments()
         setupAutoRefresh()
+        binding.bookAppointmentBtn.setOnClickListener {
+            startActivity(Intent(this, DoctorLists::class.java))
+        }
     }
 
     private fun initializeFirebase() {
@@ -158,6 +168,7 @@ class BookingHistory : AppCompatActivity() {
             Toast.makeText(this, "Please login to view your appointments", Toast.LENGTH_SHORT).show()
             binding.progressBar.visibility = View.GONE
             binding.emptyStateLayout.visibility = View.VISIBLE
+            binding.swipeRefreshLayout.isRefreshing = false
             return
         }
         binding.progressBar.visibility = View.VISIBLE
@@ -216,10 +227,12 @@ class BookingHistory : AppCompatActivity() {
                 }
                 applyFilter()
                 binding.progressBar.visibility = View.GONE
+                binding.swipeRefreshLayout.isRefreshing = false
             }
             override fun onCancelled(error: DatabaseError) {
                 Toast.makeText(this@BookingHistory, "Error: ${error.message}", Toast.LENGTH_SHORT).show()
                 binding.progressBar.visibility = View.GONE
+                binding.swipeRefreshLayout.isRefreshing = false
                 Log.e("BookingHistory", "Database error: ${error.message}")
             }
         }
@@ -252,11 +265,13 @@ class BookingHistory : AppCompatActivity() {
             Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show()
             return
         }
-        binding.progressBar.visibility = View.VISIBLE
 
         val userEmail = currentUser.email?.replace(".", ",") ?: ""
         val userId = currentUser.uid
 
+        binding.progressBar.visibility = View.VISIBLE
+
+        // Firebase references
         val userBookingRef = database.getReference("userInfo")
             .child(userId)
             .child("bookings")
@@ -269,7 +284,6 @@ class BookingHistory : AppCompatActivity() {
         val mainBookingRef = database.getReference("bookings")
             .child(appointment.bookingId)
 
-        // ✅ New reference for your requested path
         val userBookingByEmailRef = database.getReference("userBookings")
             .child(userEmail)
             .child(appointment.bookingId)
@@ -280,67 +294,70 @@ class BookingHistory : AppCompatActivity() {
             "cancellationReason" to cancelReason
         )
 
-        // Update all paths
-        userBookingRef.updateChildren(updates)
+        // Update all booking paths together
+        val tasks = listOf(
+            userBookingRef.updateChildren(updates),
+            clinicBookingRef.updateChildren(updates),
+            mainBookingRef.updateChildren(updates),
+            userBookingByEmailRef.updateChildren(updates)
+        )
+
+        com.google.android.gms.tasks.Tasks.whenAllSuccess<Void>(tasks)
             .addOnSuccessListener {
-                Log.d("BookingHistory", "UserInfo booking cancelled: ${appointment.bookingId}")
+                Log.d("BookingHistory", "All booking nodes updated successfully")
+                Toast.makeText(this, "Appointment cancelled successfully", Toast.LENGTH_SHORT).show()
+                binding.progressBar.visibility = View.GONE
 
-                clinicBookingRef.updateChildren(updates)
-                    .addOnSuccessListener {
-                        Log.d("BookingHistory", "Clinic booking cancelled: ${appointment.bookingId}")
+                // Only restore slot if it was a confirmed booking
+                if (appointment.status.lowercase() == "confirmed") {
+                    val scheduleRef = database.reference
+                        .child("clinicInfo")
+                        .child(appointment.doctorName.replace(" ", "_").replace(".", ","))
+                        .child("schedule")
+                        .child(appointment.date)
+                        .child(appointment.time)
 
-                        mainBookingRef.updateChildren(updates)
-                            .addOnSuccessListener {
-                                Log.d("BookingHistory", "Main booking cancelled: ${appointment.bookingId}")
+                    scheduleRef.runTransaction(object : com.google.firebase.database.Transaction.Handler {
+                        override fun doTransaction(currentData: com.google.firebase.database.MutableData): com.google.firebase.database.Transaction.Result {
+                            val slots = currentData.getValue(Int::class.java) ?: 0
+                            currentData.value = slots + 1
+                            return com.google.firebase.database.Transaction.success(currentData)
+                        }
 
-                                // ✅ Update your userBooking/<email>/bookingID/status
-                                userBookingByEmailRef.updateChildren(updates)
-                                    .addOnSuccessListener {
-                                        Log.d("BookingHistory", "userBooking node updated successfully")
-                                        Toast.makeText(
-                                            this,
-                                            "Appointment cancelled successfully",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        binding.progressBar.visibility = View.GONE
-                                    }
-                                    .addOnFailureListener { e ->
-                                        Log.e("BookingHistory", "Error updating userBooking: ${e.message}")
-                                        Toast.makeText(
-                                            this,
-                                            "Cancelled but failed to sync userBooking data",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                        binding.progressBar.visibility = View.GONE
-                                    }
+                        override fun onComplete(
+                            error: com.google.firebase.database.DatabaseError?,
+                            committed: Boolean,
+                            snapshot: com.google.firebase.database.DataSnapshot?
+                        ) {
+                            if (committed) {
+                                Log.d("BookingHistory", "Slot restored successfully for ${appointment.date} ${appointment.time}")
+                            } else if (error != null) {
+                                Log.e("BookingHistory", "Error restoring slot: ${error.message}")
+                                Toast.makeText(this@BookingHistory, "Failed to restore slot", Toast.LENGTH_SHORT).show()
                             }
-                            .addOnFailureListener { e ->
-                                Log.e("BookingHistory", "Error cancelling main booking: ${e.message}")
-                                Toast.makeText(this, "Appointment cancelled locally", Toast.LENGTH_SHORT).show()
-                                binding.progressBar.visibility = View.GONE
-                            }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("BookingHistory", "Error cancelling clinic booking: ${e.message}")
-                        Toast.makeText(this, "Appointment cancelled in your history, but there was an error updating clinic schedule", Toast.LENGTH_LONG).show()
-                        binding.progressBar.visibility = View.GONE
-                    }
+                        }
+                    })
+                }
             }
             .addOnFailureListener { e ->
-                Log.e("BookingHistory", "Error cancelling user booking: ${e.message}")
+                Log.e("BookingHistory", "Error cancelling appointment: ${e.message}")
                 Toast.makeText(this, "Failed to cancel appointment: ${e.message}", Toast.LENGTH_SHORT).show()
                 binding.progressBar.visibility = View.GONE
             }
     }
 
+
+
     private var autoRefreshRunnable: Runnable? = null
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private val AUTO_REFRESH_INTERVAL = 30000L // 30 seconds
+
     private fun setupAutoRefresh() {
         autoRefreshRunnable = object : Runnable {
             override fun run() {
                 Log.d("BookingHistory", "Auto-refresh triggered")
                 updateConnectionStatus()
+                autoDeclineExpiredPendingAppointments()
                 handler.postDelayed(this, AUTO_REFRESH_INTERVAL)
             }
         }
@@ -412,6 +429,7 @@ class BookingHistory : AppCompatActivity() {
             holder.bookingId?.let {
                 it.text = "#${appointment.bookingId.takeLast(5)}"
             }
+
             holder.doctorName.text = appointment.doctorName
             holder.appointmentDate.text = appointment.date
             holder.appointmentTime?.let { timeView ->
@@ -490,39 +508,120 @@ class BookingHistory : AppCompatActivity() {
             }
 
             holder.timeRemaining?.let { timeRemainingView ->
-                if (appointment.status.lowercase() == "pending" || appointment.status.lowercase() == "confirmed") {
-                    try {
-                        val dateFormat = SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault())
-                        val appointmentDate = dateFormat.parse(appointment.date)
+                val daysLeft = getDaysLeft(appointment.date)
 
-                        if (appointmentDate != null) {
-                            val today = Calendar.getInstance()
-                            val appointmentCal = Calendar.getInstance()
-                            appointmentCal.time = appointmentDate
-
-                            val diffInDays = ((appointmentCal.timeInMillis - today.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
-
-                            val timeRemainingText = when {
-                                diffInDays < 0 -> "Past"
-                                diffInDays == 0 -> "Today"
-                                diffInDays == 1 -> "Tomorrow"
-                                diffInDays < 7 -> "In $diffInDays days"
-                                else -> "In ${diffInDays / 7} weeks"
-                            }
-                            timeRemainingView.visibility = View.VISIBLE
-                            timeRemainingView.text = timeRemainingText
-                        } else {
-                            timeRemainingView.visibility = View.GONE
-                        }
-                    } catch (e: Exception) {
-                        Log.e("AppointmentAdapter", "Error parsing date: ${e.message}")
-                        timeRemainingView.visibility = View.GONE
-                    }
-                } else {
-                    timeRemainingView.visibility = View.GONE
+                timeRemainingView.visibility = View.VISIBLE
+                timeRemainingView.text = when {
+                    daysLeft > 1 -> "$daysLeft days left"
+                    daysLeft == 1L -> "Tomorrow"
+                    daysLeft == 0L -> "Tomorrow"
+                    daysLeft < 0 -> "Expired"
+                    else -> ""
                 }
             }
+
+
         }
         override fun getItemCount(): Int = appointments.size
+
+        private fun getDaysLeft(dateString: String): Long {
+            return try {
+                val sdf = SimpleDateFormat("MMMM dd, yyyy", Locale.ENGLISH)
+                val appointmentDate = sdf.parse(dateString)
+
+                val calAppointment = Calendar.getInstance().apply {
+                    time = appointmentDate!!
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                val calToday = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, 0)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }
+
+                val diff = calAppointment.timeInMillis - calToday.timeInMillis
+                diff / (1000 * 60 * 60 * 24)
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+                -999L
+            }
+        }
+
     }
+
+    private fun autoDeclineExpiredPendingAppointments() {
+        val currentUser = auth.currentUser ?: return
+        val userId = currentUser.uid
+
+        val userBookingsRef = database.getReference("userInfo")
+            .child(userId)
+            .child("bookings")
+
+        userBookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                for (bookingSnapshot in snapshot.children) {
+                    val status = bookingSnapshot.child("status").getValue(String::class.java) ?: "pending"
+                    if (status.lowercase() == "pending") {
+                        val dateStr = bookingSnapshot.child("date").getValue(String::class.java) ?: continue
+                        val timeStr = bookingSnapshot.child("time").getValue(String::class.java) ?: ""
+
+                        try {
+                            val dateFormat = SimpleDateFormat("MMMM dd, yyyy HH:mm", Locale.getDefault())
+                            val appointmentDateTime = dateFormat.parse("$dateStr $timeStr") ?: continue
+
+                            if (appointmentDateTime.before(Date())) {
+                                // Update status to declined
+                                val bookingId = bookingSnapshot.child("bookingId").getValue(String::class.java) ?: continue
+                                val updates = mapOf<String, Any>(
+                                    "status" to "declined",
+                                    "autoDeclinedTimestamp" to System.currentTimeMillis()
+                                )
+
+                                // Update all relevant paths
+                                val clinicName = bookingSnapshot.child("clinicName").getValue(String::class.java) ?: ""
+                                val userEmail = currentUser.email?.replace(".", ",") ?: ""
+
+                                val tasks = listOf(
+                                    userBookingsRef.child(bookingId).updateChildren(updates),
+                                    database.getReference("clinicBookings")
+                                        .child(clinicName.replace(" ", "_").replace(".", ","))
+                                        .child(bookingId)
+                                        .updateChildren(updates),
+                                    database.getReference("bookings")
+                                        .child(bookingId)
+                                        .updateChildren(updates),
+                                    database.getReference("userBookings")
+                                        .child(userEmail)
+                                        .child(bookingId)
+                                        .updateChildren(updates)
+                                )
+
+                                com.google.android.gms.tasks.Tasks.whenAllSuccess<Void>(tasks)
+                                    .addOnSuccessListener {
+                                        Log.d("BookingHistory", "Pending appointment $bookingId auto-declined because it expired.")
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("BookingHistory", "Failed to auto-decline appointment $bookingId: ${e.message}")
+                                    }
+                            }
+
+                        } catch (e: Exception) {
+                            Log.e("BookingHistory", "Error parsing date/time for auto-decline: ${e.message}")
+                        }
+                    }
+                }
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("BookingHistory", "Error checking expired appointments: ${error.message}")
+            }
+        })
+    }
+
 }
