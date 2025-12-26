@@ -91,12 +91,14 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/cardView9" />
 
+            <!-- Repeat block for 3 diseases -->
+            <!-- Disease 1 -->
             <TextView
-                android:id="@+id/textView41"
+                android:id="@+id/textViewDisease1"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="25dp"
-                android:text="Disease Type:"
+                android:text="Disease 1:"
                 android:textColor="@color/black"
                 android:textSize="15sp"
                 android:textStyle="bold"
@@ -104,56 +106,147 @@
                 app:layout_constraintTop_toBottomOf="@+id/textView42" />
 
             <TextView
-                android:id="@+id/resultTextView"
+                android:id="@+id/viewDetail1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:text="View Detail"
+                android:textColor="@color/blue"
+                android:textSize="15sp"
+                android:visibility="gone"
+                android:layout_marginEnd="20sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="@+id/textViewDisease1"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/textViewDisease1" />
+
+            <TextView
+                android:id="@+id/resultTextView1"
                 android:layout_width="250dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:hint="Disease Type here"
+                android:hint="Disease 1 here"
                 android:textColor="@color/black"
                 android:textSize="15sp"
                 android:textStyle="bold"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/textView41" />
+                app:layout_constraintStart_toStartOf="@+id/textViewDisease1"
+                app:layout_constraintTop_toBottomOf="@+id/textViewDisease1" />
 
             <TextView
-                android:id="@+id/detailBtn"
-                android:layout_width="wrap_content"
+                android:id="@+id/remedyTextView1"
+                android:layout_width="250dp"
                 android:layout_height="wrap_content"
-                android:text="View more details"
-                android:textColor="@color/blue"
-                android:clickable="true"
-                android:textStyle="bold"
-                android:visibility="gone"
                 android:layout_marginTop="5dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/resultTextView" />
+                android:hint="Remedy 1 here"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                app:layout_constraintStart_toStartOf="@+id/resultTextView1"
+                app:layout_constraintTop_toBottomOf="@+id/resultTextView1" />
 
+            <!-- Disease 2 -->
             <TextView
-                android:id="@+id/text2"
+                android:id="@+id/textViewDisease2"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="25dp"
-                android:layout_marginTop="5dp"
-                android:text="Suggested Remedy:"
+                android:layout_marginTop="10dp"
+                android:text="Disease 2:"
                 android:textColor="@color/black"
                 android:textSize="15sp"
                 android:textStyle="bold"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/detailBtn" />
+                app:layout_constraintTop_toBottomOf="@+id/remedyTextView1" />
 
             <TextView
-                android:id="@+id/remedyTextView"
+                android:id="@+id/viewDetail2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:text="View Detail"
+                android:textColor="@color/blue"
+                android:textSize="15sp"
+                android:visibility="gone"
+                android:layout_marginEnd="20sp"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="@+id/textViewDisease2"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/textViewDisease2" />
+
+            <TextView
+                android:id="@+id/resultTextView2"
                 android:layout_width="250dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="5dp"
-                android:hint="Suggested Remedy Here"
+                android:hint="Disease 2 here"
                 android:textColor="@color/black"
                 android:textSize="15sp"
-                app:layout_constraintEnd_toEndOf="parent"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="@+id/textViewDisease2"
+                app:layout_constraintTop_toBottomOf="@+id/textViewDisease2" />
+
+            <TextView
+                android:id="@+id/remedyTextView2"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:hint="Remedy 2 here"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                app:layout_constraintStart_toStartOf="@+id/resultTextView2"
+                app:layout_constraintTop_toBottomOf="@+id/resultTextView2" />
+
+            <!-- Disease 3 -->
+            <TextView
+                android:id="@+id/textViewDisease3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="25dp"
+                android:layout_marginTop="10dp"
+                android:text="Disease 3:"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textStyle="bold"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/text2" />
+                app:layout_constraintTop_toBottomOf="@+id/remedyTextView2" />
+
+            <TextView
+                android:id="@+id/viewDetail3"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="true"
+                android:text="View Detail"
+                android:textColor="@color/blue"
+                android:textSize="15sp"
+                android:layout_marginEnd="20sp"
+                android:visibility="gone"
+                android:textStyle="bold"
+                app:layout_constraintBottom_toBottomOf="@+id/textViewDisease3"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="@+id/textViewDisease3" />
+
+
+            <TextView
+                android:id="@+id/resultTextView3"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:hint="Disease 3 here"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                app:layout_constraintStart_toStartOf="@+id/textViewDisease3"
+                app:layout_constraintTop_toBottomOf="@+id/textViewDisease3" />
+
+            <TextView
+                android:id="@+id/remedyTextView3"
+                android:layout_width="250dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="5dp"
+                android:hint="Remedy 3 here"
+                android:textColor="@color/black"
+                android:textSize="15sp"
+                app:layout_constraintStart_toStartOf="@+id/resultTextView3"
+                app:layout_constraintTop_toBottomOf="@+id/resultTextView3" />
 
             <ImageView
                 android:id="@+id/saveScanButton"
@@ -178,7 +271,7 @@
                 android:visibility="gone"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/remedyTextView" />
+                app:layout_constraintTop_toBottomOf="@+id/remedyTextView3" />
 
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"

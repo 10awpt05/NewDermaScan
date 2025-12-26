@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:padding="5dp"
+        android:layout_marginBottom="20dp"
+        >
+        <TextView
+            android:id="@+id/btnPostBlog"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:gravity="end"
+            android:text="POST"
+            android:textColor="@color/blue"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="5dp"
+    android:layout_marginBottom="12dp"
+    android:gravity="center_vertical"
+    >
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Title: "
+        android:textColor="@color/black"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        />
+
+    <EditText
+        android:id="@+id/title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/edit_text_background2"
+        android:hint="Add Title Here..."
+        android:minLines="1"
+        android:padding="10dp"
+        android:textStyle="bold"
+        android:textSize="18sp"
+        android:layout_margin="5dp"/>
+
+
+</LinearLayout>
+
+    <EditText
+        android:id="@+id/etBlogContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Write something..."
+        android:minLines="3"
+        android:padding="10dp"
+        android:gravity="top"
+        android:background="@drawable/edit_text_background" />
+
+    <!-- MEDIA PREVIEW -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/mediaPreviewCard"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:layout_marginTop="12dp"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <ImageView
+                android:id="@+id/ivBlogImage"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:visibility="gone" />
+
+            <VideoView
+                android:id="@+id/vvBlogVideo"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/videoPlayOverlay"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_play_circle"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/mediaTypeBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|end"
+                android:layout_margin="8dp"
+                android:background="#AA000000"
+                android:textColor="@android:color/white"
+                android:text="Video"
+                android:padding="6dp"
+                android:visibility="gone" />
+
+            <ImageView
+                android:id="@+id/btnRemoveMedia"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:padding="5dp"
+                android:layout_margin="8dp"
+                android:src="@drawable/delete_close2"
+                android:layout_gravity="top|end"
+                />
+        </FrameLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- BUTTONS -->
+    <LinearLayout
+        android:id="@+id/btnAddImage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:background="@android:color/transparent"
+        android:gravity="center_vertical"
+        android:layout_marginTop="12dp">
+
+        <ImageView
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="5dp"
+            android:layout_marginBottom="5dp"
+            android:src="@drawable/ic_addimage"/>
+
+        <View
+            android:layout_width="3dp"
+            android:layout_height="25dp"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="5dp"
+            android:layout_marginBottom="5dp"
+            android:background="#C9A4A4A4"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Upload Image / Video"
+            android:layout_marginStart="10dp"
+            android:textColor="@color/black"
+            android:layout_marginTop="5dp"
+            android:layout_marginBottom="5dp"
+            android:layout_marginEnd="12dp"
+            android:textSize="15sp"
+            />
+    </LinearLayout>
+
+
+
+</LinearLayout>

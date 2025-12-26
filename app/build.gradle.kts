@@ -85,6 +85,7 @@ android {
 }
 
 dependencies {
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -94,7 +95,6 @@ dependencies {
 
     implementation("pl.droidsonroids.gif:android-gif-drawable:1.2.27")
     implementation("com.prolificinteractive:material-calendarview:1.4.3")
-    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta3")
 
     implementation("androidx.core:core-ktx:1.10.1")
     implementation("org.mindrot:jbcrypt:0.4")
@@ -102,6 +102,11 @@ dependencies {
 
     implementation("com.github.bumptech.glide:glide:4.15.0")
     ksp("com.github.bumptech.glide:compiler:4.15.0")
+
+//---MAP API---
+    implementation ("org.osmdroid:osmdroid-android:6.1.14")
+    implementation ("com.squareup.okhttp3:okhttp:4.10.0")
+//-----------
 
     implementation(libs.androidx.swiperefreshlayout)
     implementation(libs.firebase.firestore)
@@ -112,14 +117,17 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:18.2.0")
     implementation("com.google.android.libraries.places:places:3.3.0")
     implementation("com.google.android.gms:play-services-location:21.0.1")
-    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.4")
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.3")
 
     implementation("androidx.room:room-runtime:2.5.0")
     ksp("androidx.room:room-compiler:2.5.0")
     ksp("com.google.dagger:hilt-compiler:2.40.5")
 
     implementation("com.google.android.material:material:1.11.0")
-
+//    implementation ("com.google.mlkit:segmentation-selfie:17.0.6")
+//
+//    // Optional: for using InputImage
+//    implementation ("com.google.mlkit:vision-common:17.2.0")
     // ✅ TensorFlow Lite stable
     implementation("org.tensorflow:tensorflow-lite:2.14.0")
     implementation("org.tensorflow:tensorflow-lite-gpu:2.14.0")

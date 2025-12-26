@@ -9,6 +9,16 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.dermascanai.databinding.ActivityBlogViewBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.TimeUnit
+import kotlin.properties.Delegates
+import android.graphics.BitmapFactory
+import android.net.Uri
+import android.util.Base64
+import android.view.View
+
 
 class BlogView : AppCompatActivity() {
 
@@ -21,6 +31,7 @@ class BlogView : AppCompatActivity() {
 
     private lateinit var postId: String
     private lateinit var contentName: String
+    private lateinit var title: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,6 +39,7 @@ class BlogView : AppCompatActivity() {
         setContentView(binding.root)
 
         postId = intent.getStringExtra("postId") ?: return
+        title = intent.getStringExtra("blogTitle") ?: return
         contentName = intent.getStringExtra("content") ?: return
 
         commentAdapter = CommentAdapter(commentList, object : OnCommentReplyListener {
@@ -46,11 +58,18 @@ class BlogView : AppCompatActivity() {
             }
         }
 
-        binding.title.text = contentName
+        binding.title.text = title
+        binding.content.text = contentName
+
 
         loadComments()
         loadBlogPost()
+        loadCurrentUserAvatar()
         binding.backBTN.setOnClickListener { finish() }
+
+
+
+
     }
 
     // 🔹 Load blog post
@@ -60,7 +79,46 @@ class BlogView : AppCompatActivity() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val blogPost = snapshot.getValue(BlogPost::class.java)
                 blogPost?.let {
-                    binding.title.text = contentName
+                    binding.title.text = title
+                    binding.content.text = contentName
+
+                    if (!it.imageUrl.isNullOrEmpty()) {
+                        try {
+                            val decodedBytes = Base64.decode(it.imageUrl, Base64.DEFAULT)
+                            val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+
+                            binding.postImage.setImageBitmap(bitmap)
+                            binding.postImage.visibility = View.VISIBLE
+
+                            binding.postImage.setOnClickListener {
+                                binding.imageView.visibility = View.VISIBLE
+                                binding.viewImage.setImageBitmap(bitmap)
+                            }
+                            binding.closeImage.setOnClickListener {
+                                binding.imageView.visibility = View.GONE
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    
+///-------------------------Profile Image
+                    if (!it.profilePicBase64.isNullOrEmpty()) {
+                        try {
+                            val decodedBytes = Base64.decode(it.profilePicBase64, Base64.DEFAULT)
+                            val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
+
+                            binding.authorAvatar.setImageBitmap(bitmap)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    }
+
+                    it.timestamp?.let { time ->
+                        binding.readingTime.text = formatTimestamp(time)
+                    }
+
                     val postOwnerId = it.userId ?: return
                     fetchOwnerInfo(postOwnerId) { fullName, _ ->
                         binding.textView23.text = fullName
@@ -316,4 +374,71 @@ class BlogView : AppCompatActivity() {
 
         database.child("notifications").child(toUserId).child(notificationId).setValue(notification)
     }
+
+    private fun formatTimestamp(timeMillis: Long): String {
+        val now = System.currentTimeMillis()
+        val diff = now - timeMillis
+
+        return when {
+            diff < TimeUnit.MINUTES.toMillis(1) ->
+                "Just now"
+
+            diff < TimeUnit.HOURS.toMillis(1) ->
+                "${TimeUnit.MILLISECONDS.toMinutes(diff)} min ago"
+
+            diff < TimeUnit.DAYS.toMillis(1) ->
+                "${TimeUnit.MILLISECONDS.toHours(diff)} hrs ago"
+
+            diff < TimeUnit.DAYS.toMillis(2) ->
+                "Yesterday"
+
+            else -> {
+                val sdf = SimpleDateFormat("MMM dd", Locale.getDefault())
+                sdf.format(Date(timeMillis)) // e.g. Dec 23
+            }
+        }
+    }
+    private fun loadCurrentUserAvatar() {
+        val userId = auth.currentUser?.uid ?: return
+
+        val userRef = database.child("userInfo").child(userId)
+        val clinicRef = database.child("clinicInfo").child(userId)
+
+        userRef.get().addOnSuccessListener { snapshot ->
+            if (snapshot.exists()) {
+                val base64Image = snapshot.child("profileImage")
+                    .getValue(String::class.java)
+
+                setAvatarImage(base64Image)
+            } else {
+                clinicRef.get().addOnSuccessListener { clinicSnap ->
+                    if (clinicSnap.exists()) {
+                        val base64Image = clinicSnap.child("logoImage")
+                            .getValue(String::class.java)
+
+                        setAvatarImage(base64Image)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun setAvatarImage(base64Image: String?) {
+        if (base64Image.isNullOrEmpty()) return
+
+        try {
+            val decodedBytes = Base64.decode(base64Image, Base64.DEFAULT)
+            val bitmap = BitmapFactory.decodeByteArray(
+                decodedBytes,
+                0,
+                decodedBytes.size
+            )
+
+            binding.userAvatar.setImageBitmap(bitmap)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+
 }

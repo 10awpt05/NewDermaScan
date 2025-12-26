@@ -1,7 +1,7 @@
 package com.example.dermascanai
 
 import android.Manifest
-import android.app.Activity
+import android.R.attr.bitmap
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -17,14 +17,11 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import com.example.dermascanai.databinding.ActivityMainPageBinding
-import org.tensorflow.lite.Interpreter
 import java.io.File
 import java.io.IOException
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
-import android.content.res.AssetFileDescriptor
 import android.media.ExifInterface
-import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -54,6 +51,8 @@ import com.example.dermascanai.ml.AIv5
 import org.json.JSONArray
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import org.tensorflow.lite.task.core.BaseOptions
+import org.tensorflow.lite.task.vision.classifier.ImageClassifier
 import showWarningDialog
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -77,16 +76,29 @@ class MainPage : AppCompatActivity() {
     private lateinit var conditionLabels: List<String>
 
     private var selectedImageBase64: String? = null
+    private var currentBitmap: Bitmap? = null
+    private var currentTop3Text: String = ""
+
 
     private lateinit var pickImageLauncher: ActivityResultLauncher<String>
     private lateinit var takePhotoLauncher: ActivityResultLauncher<Uri>
     private var photoUri: Uri? = null
+    private val remedies = mapOf(
+        "Acne" to "Cleanse face twice daily with mild cleanser and apply acne cream.",
+        "Impetigo" to "Apply antibiotic ointment and keep area clean.",
+        "Nail Fungus" to "Use antifungal cream and keep nails dry.",
+        "Normal" to "Skin is healthy. Maintain skincare and hydration.",
+        "Tinea or Ringworm" to "Apply antifungal cream and keep area dry.",
+        "Urticaria Hives" to "Take antihistamines and avoid triggers.",
+        "Vitiligo" to "Use sunscreen and consult dermatologist for treatment.",
+        "Warts" to "Use salicylic acid or cryotherapy; avoid picking."
+    )
 
     private val imagePickerLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri?.let {
             val inputStream = contentResolver.openInputStream(it)
             val bitmap = BitmapFactory.decodeStream(inputStream)
-            selectedImageBase64 = encodeImageToBase64(bitmap)
+            selectedImageBase64 = encodeToBase64(bitmap)
             selectedImageView?.setImageBitmap(bitmap)
         }
     }
@@ -161,84 +173,116 @@ class MainPage : AppCompatActivity() {
             showImagePickerDialog()
         }
 
+        binding.reportScan.setOnClickListener {
+            if (currentBitmap == null) {
+                Toast.makeText(this, "No scan available to report.", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            showReportDialog(currentBitmap!!, currentTop3Text)
+        }
 
 
         binding.backBTN.setOnClickListener {
             finish()
         }
 
-
-
     }
 
     private fun handleImage(uri: Uri) {
-        binding.progressContainer.visibility = View.VISIBLE
         binding.skinImageView.setImageURI(uri)
+        binding.progressContainer.visibility = View.VISIBLE
 
         CoroutineScope(Dispatchers.Main).launch {
-            val (result, bitmap) = withContext(Dispatchers.Default) {
-                val bmp = MediaStore.Images.Media.getBitmap(contentResolver, uri)
-                val prediction = predict(bmp)
-                prediction to bmp
+            val bitmap = withContext(Dispatchers.IO) { MediaStore.Images.Media.getBitmap(contentResolver, uri) }
+            currentBitmap = bitmap
+            // Check if skin is detected
+            val hasSkin = withContext(Dispatchers.Default) { detectSkinHSV(bitmap) }
+            if (!hasSkin) {
+                binding.progressContainer.visibility = View.GONE
+                AlertDialog.Builder(this@MainPage)
+                    .setTitle("No Skin Detected")
+                    .setMessage("The image does not contain visible skin. Please choose another image.")
+                    .setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+                    .show()
+                return@launch
             }
 
-            val diseaseName = result.substringBeforeLast(" (").trim()
+            // Predict top-3 diseases
+            val predictions = withContext(Dispatchers.Default) { predict(bitmap) }
 
-            binding.resultTextView.text = "You might have $result"
-            binding.remedyTextView.text = getRemedy(diseaseName)
+            currentTop3Text = predictions.joinToString("\n") { it.first }
 
-            // ✅ Save button
-            binding.saveScanButton.visibility = View.VISIBLE
-            binding.saveScanButton.setOnClickListener {
-                saveScanResultToFirebase(result, getRemedy(diseaseName), bitmap)
+            // Update UI
+            predictions.forEachIndexed { index, pair ->
+                when (index) {
+                    0 -> { binding.resultTextView1.text = pair.first; binding.remedyTextView1.text = pair.second }
+                    1 -> { binding.resultTextView2.text = pair.first; binding.remedyTextView2.text = pair.second }
+                    2 -> { binding.resultTextView3.text = pair.first; binding.remedyTextView3.text = pair.second }
+                }
             }
-
-            // ✅ Details button
-            binding.detailBtn.visibility = View.VISIBLE
-            binding.detailBtn.setOnClickListener {
-                // Save bitmap to cache instead of passing Base64
-                val file = File(cacheDir, "disease_preview.png")
-                FileOutputStream(file).use {
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
-                }
-
-                // Pass only the path and name
-                val intent = Intent(this@MainPage, DiseaseDetails::class.java)
-                intent.putExtra("condition", diseaseName)
-                intent.putExtra("imagePath", file.absolutePath) // ✅ small string
-                startActivity(intent)
-            }
-
-
-            // ✅ Report Scan button (only for derma users)
-            val userId = firebase.currentUser?.uid ?: return@launch
-            val roleRef = database.getReference("clinicInfo").child(userId).child("role")
-
-            roleRef.addListenerForSingleValueEvent(object : ValueEventListener {
-                override fun onDataChange(snapshot: DataSnapshot) {
-                    val role = snapshot.getValue(String::class.java)
-                    if (role == "derma") {
-                        binding.reportScan.visibility = View.VISIBLE
-                        binding.reportScan.setOnClickListener {
-                            showReportDialog()
-                        }
-                    } else {
-                        binding.reportScan.visibility = View.GONE
-                    }
-                }
-
-                override fun onCancelled(error: DatabaseError) {
-                    Toast.makeText(this@MainPage, "Failed to load user role", Toast.LENGTH_SHORT).show()
-                }
-            })
-
-            // ✅ Clinics section
-            binding.textClinic.visibility = View.VISIBLE
-            binding.nerbyClinic.visibility = View.VISIBLE
-            loadClinicsFromFirebase()
 
             binding.progressContainer.visibility = View.GONE
+            binding.saveScanButton.visibility = View.VISIBLE
+            binding.saveScanButton.setOnClickListener {
+                saveScanToFirebase(predictions, bitmap)
+            }
+
+
+            // ✅ Show report dialog if the user is a dermatologist
+            val userId = firebase.currentUser?.uid ?: return@launch
+            isDermatologist(userId) { isDerma ->
+                if (isDerma) {
+                    val top3Text = predictions.joinToString("\n") { it.first } // generate text for top-3
+                    binding.reportScan.visibility = View.VISIBLE
+
+                }
+            }
         }
+    }
+
+
+    private fun isDermatologist(userId: String, callback: (Boolean) -> Unit) {
+        val userRef = database.getReference("clinicInfo").child(userId).child("role") // assuming you store role
+        userRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val role = snapshot.getValue(String::class.java) ?: ""
+                callback(role.lowercase() == "derma") // true if dermatologist
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                callback(false)
+            }
+        })
+    }
+
+    fun detectSkinHSV(bitmap: Bitmap): Boolean {
+        val width = bitmap.width
+        val height = bitmap.height
+        var skinPixels = 0
+        val totalPixels = width * height
+
+        for (y in 0 until height step 2) { // step to speed up
+            for (x in 0 until width step 2) {
+                val pixel = bitmap.getPixel(x, y)
+                val r = Color.red(pixel)
+                val g = Color.green(pixel)
+                val b = Color.blue(pixel)
+
+                val hsv = FloatArray(3)
+                Color.RGBToHSV(r, g, b, hsv)
+                val h = hsv[0]
+                val s = hsv[1]
+                val v = hsv[2]
+
+                if (h in 0f..50f && s in 0.23f..0.68f && v in 0.35f..1.0f) {
+                    skinPixels++
+                }
+            }
+        }
+
+        val skinRatio = skinPixels.toFloat() / (totalPixels / 4) // because of step 2
+        return skinRatio > 0.1f // if >10% pixels are skin → skin detected
     }
 
 
@@ -286,11 +330,16 @@ class MainPage : AppCompatActivity() {
     }
 
 
-
+    private fun openDetailActivity(diseaseName: String, file: File) {
+        val intent = Intent(this, DiseaseDetails::class.java)
+        intent.putExtra("disease_name", diseaseName)
+        intent.putExtra("image_file", file.absolutePath)
+        startActivity(intent)
+    }
 
 
     private fun loadModelFile(): MappedByteBuffer {
-        assets.openFd("dermascan21_float16.tflite").use { fileDescriptor ->
+        assets.openFd("AIv5.tflite").use { fileDescriptor ->
             FileInputStream(fileDescriptor.fileDescriptor).use { inputStream ->
                 val fileChannel = inputStream.channel
                 return fileChannel.map(
@@ -343,107 +392,7 @@ class MainPage : AppCompatActivity() {
             .show()
     }
 
-
-    private fun getSkinImageFromGallery() {
-        val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
-        intent.type = "image/*"
-        startActivityForResult(intent, PICK_IMAGE_REQUEST)
-    }
-
-    private fun takePhoto() {
-        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        if (intent.resolveActivity(packageManager) != null) {
-            val photoFile = createImageFile()
-            imageUri = FileProvider.getUriForFile(this, "com.example.dermascanai.fileprovider", photoFile)
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, imageUri)
-            startActivityForResult(intent, CAMERA_REQUEST)
-        }
-    }
-
-//    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-//        super.onActivityResult(requestCode, resultCode, data)
-//
-//        if (resultCode == Activity.RESULT_OK) {
-//            val bitmap: Bitmap = when (requestCode) {
-//                PICK_IMAGE_REQUEST -> {
-//                    imageUri = data?.data
-//                    MediaStore.Images.Media.getBitmap(contentResolver, imageUri)
-//                }
-//                CAMERA_REQUEST -> BitmapFactory.decodeStream(contentResolver.openInputStream(imageUri!!))
-//                else -> return
-//            }
-//
-//            CoroutineScope(Dispatchers.Main).launch {
-////                showProgress()
-//
-//                val rotatedBitmap = rotateImageIfNeeded(bitmap, imageUri)
-//                val result = predict(rotatedBitmap)
-//                val diseaseName = result.substringBeforeLast(" (").trim()
-//
-//
-//                binding.reportScan.setOnClickListener {
-//                    showReportDialog()
-//                }
-//
-////                hideProgress()
-////                val result = predictionResult
-//                binding.detailBtn.visibility = View.VISIBLE
-//                binding.skinImageView.setImageBitmap(rotatedBitmap)
-//                binding.resultTextView.text = "You might have $result"
-//                binding.remedyTextView.text = getRemedy(diseaseName)
-//
-//                binding.detailBtn.setOnClickListener {
-//                    // Get only the disease name (before the "(" )
-//                    val baos = ByteArrayOutputStream()
-//                    rotatedBitmap.compress(Bitmap.CompressFormat.PNG, 100, baos)
-//                    val byteArray = baos.toByteArray()
-//                    val imageBase64 = Base64.encodeToString(byteArray, Base64.DEFAULT)
-//                    val diseaseName = result.substringBeforeLast(" (").trim()
-//
-//                    val intent = Intent(this@MainPage, DiseaseDetails::class.java)
-//                    intent.putExtra("condition", diseaseName)   // only "Acne"
-//                    intent.putExtra("image", imageBase64) // still sending image
-//                    startActivity(intent)
-//                }
-//
-//                binding.saveScanButton.visibility = View.VISIBLE
-//                binding.nerbyClinic.visibility = View.VISIBLE
-//                binding.textClinic.visibility = View.VISIBLE
-//
-//                binding.saveScanButton.setOnClickListener {
-//
-//                    val condition = result
-//                    val remedy = getRemedy(result)
-//
-//                    saveScanResultToFirebase(condition, remedy, bitmap)
-//                }
-//
-//
-//
-//            }
-//        }
-//    }
-
-    private fun showReportDialog() {
-        val builder = AlertDialog.Builder(this)
-        builder.setTitle("Report Reminder")
-        builder.setMessage("Please make a screenshot and upload it as part of your report.")
-        builder.setPositiveButton("Proceed") { dialog, _ ->
-            dialog.dismiss()
-            // Proceed to your report logic here
-            openReportScreen() // Optional: call another function or activity
-        }
-        builder.setNegativeButton("Cancel") { dialog, _ ->
-            dialog.dismiss()
-        }
-
-        val dialog = builder.create()
-        dialog.show()
-    }
-
-
-
-    private fun openReportScreen() {
+    private fun showReportDialog(bitmap: Bitmap, top3Result: String) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Send Feedback to Admin")
 
@@ -456,36 +405,35 @@ class MainPage : AppCompatActivity() {
             hint = "Write your message or review here"
         }
 
-        selectedImageView = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                500
-            )
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            visibility = View.GONE
-        }
-
-        val selectImageButton = Button(this).apply {
-            text = "Select Screenshot Image"
-            setOnClickListener {
-                imagePickerLauncher.launch("image/*")
-                selectedImageView?.visibility = View.VISIBLE
-            }
-        }
-
         layout.addView(input)
-        layout.addView(selectImageButton)
-        layout.addView(selectedImageView)
-
         builder.setView(layout)
 
         builder.setPositiveButton("Send") { dialog, _ ->
             val message = input.text.toString()
             if (message.isBlank()) {
                 Toast.makeText(this, "Please enter a message.", Toast.LENGTH_SHORT).show()
-            } else {
-                reportScan(message, selectedImageBase64)
+                return@setPositiveButton
             }
+
+            val imageBase64 = encodeToBase64(bitmap)
+
+            // --- Build combined condition + remedy strings ---
+            val lines = top3Result.lines().filter { it.isNotBlank() }
+
+            val conditionString = lines.joinToString(", ") { it.trim() }
+
+            val remedyString = lines.joinToString(", ") { line ->
+                val name = line.substringBefore("(").trim()
+                "$name - ${getRemedy(name)}"
+            }
+
+            saveReportFormatted(
+                message = message,
+                imageBase64 = imageBase64,
+                conditionString = conditionString,
+                remedyString = remedyString
+            )
+
             dialog.dismiss()
         }
 
@@ -495,36 +443,61 @@ class MainPage : AppCompatActivity() {
 
         builder.show()
     }
-
-
-    private fun reportScan(userMessage: String, imageBase64: String?) {
+    
+    private fun saveReportFormatted(
+        message: String,
+        imageBase64: String,
+        conditionString: String,
+        remedyString: String
+    ) {
         val userId = firebase.currentUser?.uid ?: return
-        val userNameRef = database.getReference("clinicInfo").child(userId).child("clinicName")
-        val clinic = database.getReference("clinicInfo").child(userId)
+        val userNameRef = database.getReference("clinicInfo")
+            .child(userId)
+            .child("clinicName")
 
         userNameRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val userName = snapshot.getValue(String::class.java) ?: "Unknown User"
 
-                val report = hashMapOf(
-                    "userId" to userId,
-                    "userName" to userName,
-                    "message" to userMessage,
+                val reportTimestamp = System.currentTimeMillis()
+                val timeFormatted = SimpleDateFormat(
+                    "MMMM dd, yyyy HH:mm:ss",
+                    Locale.getDefault()
+                ).format(Date())
+
+                // EXACT FIREBASE STRUCTURE
+                val scanResultMap = mapOf(
+                    "condition" to conditionString,
                     "imageBase64" to imageBase64,
-                    "timestamp" to System.currentTimeMillis()
+                    "remedy" to remedyString,
+                    "timestamp" to timeFormatted
                 )
 
-                val reportsRef = database.getReference("scanReports")
-                val newReportKey = reportsRef.push().key ?: return
+                val reportData = mapOf(
+                    "message" to message,
+                    "reportTimestamp" to reportTimestamp,
+                    "scanResult" to scanResultMap,
+                    "userId" to userId,
+                    "userName" to userName
+                )
 
+                val ref = database.getReference("scanReports")
+                val newKey = ref.push().key ?: return
 
-                clinic.child("scanReports").child(newReportKey).setValue(report)    
-                reportsRef.child(newReportKey).setValue(report)
+                ref.child(newKey).setValue(reportData)
                     .addOnSuccessListener {
-                        Toast.makeText(this@MainPage, "Report sent successfully!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@MainPage,
+                            "Report sent successfully!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                     .addOnFailureListener {
-                        Toast.makeText(this@MainPage, "Failed to send report.", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            this@MainPage,
+                            "Failed to send report: ${it.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
             }
 
@@ -533,6 +506,7 @@ class MainPage : AppCompatActivity() {
             }
         })
     }
+
 
 
 
@@ -573,61 +547,45 @@ class MainPage : AppCompatActivity() {
     }
 
 
-    private fun predict(bitmap: Bitmap): String {
-        // Resize to 300x300
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, 300, 300, true)
-
-        // Convert bitmap to normalized ByteBuffer
-        val byteBuffer = ByteBuffer.allocateDirect(4 * 1 * 300 * 300 * 3)
+    private fun predict(bitmap: Bitmap): List<Pair<String, String>> {
+        val inputSize = 224
+        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+        val byteBuffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3)
         byteBuffer.order(ByteOrder.nativeOrder())
 
-        for (y in 0 until 300) {
-            for (x in 0 until 300) {
-                val pixel = resizedBitmap.getPixel(x, y)
-
-                // Normalize to [0,1] just like ImageDataGenerator(rescale=1./255)
-                val r = (pixel shr 16 and 0xFF) / 255.0f
-                val g = (pixel shr 8 and 0xFF) / 255.0f
-                val b = (pixel and 0xFF) / 255.0f
-
-                byteBuffer.putFloat(r)
-                byteBuffer.putFloat(g)
-                byteBuffer.putFloat(b)
+        for (y in 0 until inputSize) {
+            for (x in 0 until inputSize) {
+                val px = resizedBitmap.getPixel(x, y)
+                byteBuffer.putFloat((px shr 16 and 0xFF) / 255f)
+                byteBuffer.putFloat((px shr 8 and 0xFF) / 255f)
+                byteBuffer.putFloat((px and 0xFF) / 255f)
             }
         }
 
-        // Prepare Tensor input
-        val input = TensorBuffer.createFixedSize(intArrayOf(1, 300, 300, 3), DataType.FLOAT32)
+        val input = TensorBuffer.createFixedSize(intArrayOf(1, inputSize, inputSize, 3), DataType.FLOAT32)
         input.loadBuffer(byteBuffer)
+        val output = model.process(input).outputFeature0AsTensorBuffer.floatArray
 
-        // Run inference
-        val outputs = model.process(input)
-        val outputTensor = outputs.outputFeature0AsTensorBuffer
-        val resultArray = outputTensor.floatArray
-
-        // Find the highest confidence class
-        val maxIndex = resultArray.indices.maxByOrNull { resultArray[it] } ?: -1
-        val confidence = if (maxIndex != -1) resultArray[maxIndex] * 100 else 0f
-
-        return if (maxIndex != -1 && maxIndex < conditionLabels.size) {
-            // Show like: "You might have Acne (82.45%)"
-            "${conditionLabels[maxIndex]} (%.2f%%)".format(confidence)
-        } else {
-            "Unknown condition"
-        }
+        return output.mapIndexed { index, confidence -> index to confidence }
+            .sortedByDescending { it.second }
+            .take(3)
+            .map { pair ->
+                val label = conditionLabels.getOrElse(pair.first) { "Unknown" }
+                val remedy = remedies[label] ?: "No specific remedy"
+                val confidencePercent = String.format("%.1f%%", pair.second * 100)
+                "$label ($confidencePercent)" to remedy
+            }
     }
+
 
 
     private fun loadConditionLabels(): List<String> {
         val inputStream = assets.open("labels.json")
-        val jsonString = inputStream.bufferedReader().use { it.readText() }
-        val jsonArray = JSONArray(jsonString)
-
-        val labels = mutableListOf<String>()
-        for (i in 0 until jsonArray.length()) {
-            labels.add(jsonArray.getString(i))
-        }
-        return labels
+        val json = inputStream.bufferedReader().use { it.readText() }
+        val jsonArray = org.json.JSONArray(json)
+        val list = mutableListOf<String>()
+        for (i in 0 until jsonArray.length()) list.add(jsonArray.getString(i))
+        return list
     }
 
     private fun bitmapToByteBuffer(bitmap: Bitmap): ByteBuffer {
@@ -668,55 +626,45 @@ class MainPage : AppCompatActivity() {
         return when (condition) {
 
             "Acne" -> "Cleanse your face twice daily with a mild cleanser and apply over-the-counter benzoyl peroxide or salicylic acid products to reduce inflammation and bacteria."
-            "Actinic Keratosis (AK)" -> "Apply sunscreen regularly, avoid excessive sun exposure, and see a dermatologist for possible cryotherapy or prescription treatments."
-            "Basal Cell Carcinoma (BCC)" -> "Seek immediate medical attention. BCC is a form of skin cancer and requires professional treatment, such as surgery or topical medications."
-            "Chickenpox (Varicella)" -> "Use calamine lotion or oatmeal baths to relieve itching. Keep nails trimmed to prevent scratching and secondary infections."
-            "Eczema  or Atopic Dermatitis" -> "Keep skin moisturized with fragrance-free creams or ointments. Apply cool compresses to relieve itching and avoid known irritants."
-            "Melanocytic Nevi (Moles)" -> "Most moles are harmless, but monitor for changes in size, shape, or color. Consult a dermatologist if you notice abnormalities."
-            "Melanoma" -> "Seek immediate medical attention. Melanoma is a serious form of skin cancer and cannot be treated with home remedies."
-            "Monkeypox" -> "Isolate yourself, keep rashes clean and dry, and take pain relievers or fever reducers if needed. Consult a healthcare provider for monitoring."
-            "Nail Fungus (Onychomycosis)" -> "Apply antifungal creams or medicated nail solutions. Keep nails dry and trimmed; oral medication may be required for persistent cases."
-            "Normal Skin" -> "Your skin is healthy. Maintain good hydration, a balanced diet, and regular skincare with sunscreen to keep it that way!"
-            "Psoriasis" -> "Apply aloe vera gel or a moisturizer with coal tar or salicylic acid. Short daily baths with oatmeal or Epsom salt may soothe itching."
-            "Rosacea" -> "Avoid triggers such as spicy foods, alcohol, and extreme temperatures. Use gentle skincare products and consult a dermatologist for medication if severe."
-            "Seborrheic Keratosis" -> "These are generally harmless. Moisturizers and gentle exfoliation may help irritation. For removal, consult a dermatologist."
+            "Impetigo" -> "Keep the affected area clean and dry. Apply antibiotic ointment as prescribed by a doctor and avoid scratching to prevent spreading."
+            "Nail Fungus" -> "Apply antifungal creams or medicated nail solutions. Keep nails dry and trimmed; oral medication may be required for persistent cases."
+            "Normal" -> "Your skin is healthy. Maintain good hydration, a balanced diet, and regular skincare with sunscreen to keep it that way!"
             "Tinea or Ringworm" -> "Apply an over-the-counter antifungal cream (like clotrimazole or terbinafine) twice daily. Keep the affected area clean and dry."
-            "Warts (Verruca, Viral Infection)" -> "Use salicylic acid treatments or over-the-counter cryotherapy. Avoid picking to prevent spreading the virus."
+            "Urticaria Hives" -> "Avoid known triggers, take antihistamines if needed, and keep skin cool. Consult a doctor if hives persist or worsen."
+            "Vitiligo" -> "Use broad-spectrum sunscreen to protect depigmented areas. Topical corticosteroids or phototherapy may be recommended by a dermatologist."
+            "Warts" -> "Use salicylic acid treatments or over-the-counter cryotherapy. Avoid picking to prevent spreading the virus."
             else -> "No specific remedy found. Consult a dermatologist for diagnosis and treatment."
         }
-
     }
 
-    private fun saveScanResultToFirebase(condition: String, remedy: String, bitmap: Bitmap) {
-        val databaseReference = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").reference
-        val currentUser = FirebaseAuth.getInstance().currentUser
-        val userId = currentUser?.uid
 
-        if (userId == null) {
-            Toast.makeText(this, "User not logged in", Toast.LENGTH_SHORT).show()
-            return
-        }
+    private fun saveScanToFirebase(predictions: List<Pair<String, String>>, bitmap: Bitmap) {
+        val currentUser = firebase.currentUser ?: return
+        val userId = currentUser.uid
+        val dbRef = database.reference
 
-        val imageBase64 = encodeImageToBase64(bitmap)
+        val imageBase64 = encodeToBase64(bitmap)
         val timestamp = SimpleDateFormat("MMMM dd, yyyy HH:mm:ss", Locale.getDefault()).format(Date())
         val scanId = SimpleDateFormat("MM-dd-yyyy_HH-mm-ss", Locale.getDefault()).format(Date())
-//        val timestamp = System.currentTimeMillis()
-        val scanResult = ScanResult(condition, remedy, imageBase64, timestamp)
 
-        databaseReference.child("scanResults").child(userId).child(scanId).setValue(scanResult)
-            .addOnSuccessListener {
-                Toast.makeText(this, "Scan result saved", Toast.LENGTH_SHORT).show()
-            }
-            .addOnFailureListener { e ->
-                Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
-            }
+        val predictionsMap = predictions.map { mapOf("disease" to it.first, "remedy" to it.second) }
+
+        val scanData = mapOf(
+            "timestamp" to timestamp,
+            "imageBase64" to imageBase64,
+            "predictions" to predictionsMap
+        )
+
+        dbRef.child("scanResults").child(userId).child(scanId).setValue(scanData)
+            .addOnSuccessListener { Toast.makeText(this, "Scan saved successfully!", Toast.LENGTH_SHORT).show() }
+            .addOnFailureListener { e -> Toast.makeText(this, "Save failed: ${e.message}", Toast.LENGTH_SHORT).show() }
     }
 
-    private fun encodeImageToBase64(bitmap: Bitmap): String {
-        val outputStream = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, outputStream)
-        val byteArray = outputStream.toByteArray()
-        return android.util.Base64.encodeToString(byteArray, Base64.DEFAULT)
+
+    private fun encodeToBase64(bitmap: Bitmap): String {
+        val baos = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 60, baos)
+        return android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.DEFAULT)
     }
 
     private fun uriToBitmap(uri: Uri): Bitmap {

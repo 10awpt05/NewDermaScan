@@ -4,7 +4,10 @@ import android.app.AlertDialog
 import android.graphics.BitmapFactory
 import android.os.Bundle
 import android.util.Base64
+import android.view.LayoutInflater
 import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.dermascanai.databinding.ActivityScanDetailBinding
@@ -12,6 +15,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 
 class ScanDetailActivity : AppCompatActivity() {
+
     private lateinit var binding: ActivityScanDetailBinding
     private lateinit var databaseRef: DatabaseReference
     private lateinit var reportRef: DatabaseReference
@@ -77,17 +81,11 @@ class ScanDetailActivity : AppCompatActivity() {
         databaseRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 if (snapshot.exists()) {
-                    val condition = snapshot.child("condition").getValue(String::class.java) ?: "Unknown"
-                    val remedy = snapshot.child("remedy").getValue(String::class.java) ?: "Not available"
                     val timestamp = snapshot.child("timestamp").getValue(String::class.java) ?: "Unknown"
                     val imageBase64 = snapshot.child("imageBase64").getValue(String::class.java)
-
-                    binding.textViewConditionDetail.text = "Condition: $condition"
-                    binding.textViewRemedyDetail.text = "Remedy: $remedy"
-                    binding.textViewTimestampDetail.text = "Timestamp: $timestamp"
-
                     currentImageBase64 = imageBase64
 
+                    // Display image
                     imageBase64?.let {
                         try {
                             val decodedBytes = Base64.decode(it, Base64.DEFAULT)
@@ -98,6 +96,31 @@ class ScanDetailActivity : AppCompatActivity() {
                         }
                     } ?: run {
                         binding.imageViewDetail.setImageResource(R.drawable.ic_scan)
+                    }
+
+                    // Display timestamp
+                    binding.textViewTimestampDetail.text = timestamp
+
+                    // Clear previous predictions
+                    binding.predictionsList.removeAllViews()
+
+                    // Loop through predictions array
+                    val predictions = snapshot.child("predictions")
+                    for (predictionSnapshot in predictions.children) {
+                        val disease = predictionSnapshot.child("disease").getValue(String::class.java) ?: "Unknown"
+                        val remedy = predictionSnapshot.child("remedy").getValue(String::class.java) ?: "Not available"
+                        val confidence = predictionSnapshot.child("confidence").getValue(Double::class.java) ?: 0.0
+
+                        val view = LayoutInflater.from(this@ScanDetailActivity)
+                            .inflate(R.layout.item_prediction, binding.predictionsList, false)
+
+                        val diseaseText = view.findViewById<TextView>(R.id.textViewDisease)
+                        val remedyText = view.findViewById<TextView>(R.id.textViewRemedy)
+
+                        diseaseText.text = disease
+                        remedyText.text = remedy
+
+                        binding.predictionsList.addView(view)
                     }
                 } else {
                     Toast.makeText(this@ScanDetailActivity, "Scan data not found", Toast.LENGTH_SHORT).show()
@@ -135,12 +158,21 @@ class ScanDetailActivity : AppCompatActivity() {
     private fun saveReportToFirebase(message: String) {
         val currentUser = mAuth.currentUser ?: return
 
-        // Include full scan result in the report
+        val predictionsData = mutableListOf<Map<String, Any>>()
+        for (i in 0 until binding.predictionsList.childCount) {
+            val view = binding.predictionsList.getChildAt(i)
+            val disease = view.findViewById<TextView>(R.id.textViewDisease).text.toString()
+            val remedy = view.findViewById<TextView>(R.id.textViewRemedy).text.toString()
+            predictionsData.add(mapOf(
+                "disease" to disease,
+                "remedy" to remedy
+            ))
+        }
+
         val scanData = mapOf(
-            "condition" to binding.textViewConditionDetail.text.toString().replace("Condition: ", ""),
-            "remedy" to binding.textViewRemedyDetail.text.toString().replace("Remedy: ", ""),
+            "predictions" to predictionsData,
             "imageBase64" to currentImageBase64,
-            "timestamp" to binding.textViewTimestampDetail.text.toString().replace("Timestamp: ", "")
+            "timestamp" to binding.textViewTimestampDetail.text.toString()
         )
 
         val reportData = mapOf(
@@ -164,7 +196,6 @@ class ScanDetailActivity : AppCompatActivity() {
             }
     }
 
-
     private fun checkIfAlreadyReported() {
         val currentUser = mAuth.currentUser ?: return
         reportRef.orderByChild("userId").equalTo(currentUser.uid)
@@ -172,7 +203,7 @@ class ScanDetailActivity : AppCompatActivity() {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     var alreadyReported = false
                     for (child in snapshot.children) {
-                        val image = child.child("imageBase64").getValue(String::class.java)
+                        val image = child.child("scanResult").child("imageBase64").getValue(String::class.java)
                         if (image == currentImageBase64) {
                             alreadyReported = true
                             break

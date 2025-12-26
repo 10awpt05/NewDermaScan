@@ -1,18 +1,26 @@
 package com.example.dermascanai
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
+import android.location.Geocoder
 import android.os.Bundle
 import android.util.Base64
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupWindow
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -22,6 +30,14 @@ import com.example.dermascanai.databinding.FragmentDermaHomeBinding
 import com.example.dermascanai.databinding.FragmentHomeUserBinding
 import com.example.dermascanai.databinding.LayoutNotificationPopupBinding
 import com.example.dermascanai.databinding.NavHeaderBinding
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.GoogleMap
+import com.google.android.gms.maps.SupportMapFragment
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MarkerOptions
 import com.google.android.material.navigation.NavigationView
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.DataSnapshot
@@ -33,6 +49,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Locale
+import android.Manifest
 
 
 class UserHomeFragment : Fragment() {
@@ -42,6 +59,13 @@ class UserHomeFragment : Fragment() {
     private lateinit var mDatabase: DatabaseReference
     private lateinit var mAuth: FirebaseAuth
 
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+
+    private lateinit var fullscreenMapContainer: ConstraintLayout
+    private lateinit var backFromMap: ImageView
+    private lateinit var fullMapContainer: FrameLayout
+
 //    private lateinit var notificationBinding: LayoutNotificationPopupBinding
 //    private lateinit var notificationAdapter: NotificationAdapter
 //    private val notificationList = mutableListOf<Notification>()
@@ -50,6 +74,9 @@ class UserHomeFragment : Fragment() {
     private var clinicEventListener: ValueEventListener? = null
     private var tipEventListener: ValueEventListener? = null
     private var notificationEventListener: ValueEventListener? = null
+
+
+    private val LOCATION_REQUEST_CODE = 1001
 
 //    private val notificationRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
 //        .getReference("notifications")
@@ -64,6 +91,22 @@ class UserHomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        fullscreenMapContainer = binding.root.findViewById(R.id.fullscreenMapContainer)
+        backFromMap = binding.root.findViewById(R.id.backFromMap)
+        fullMapContainer = binding.root.findViewById(R.id.fullMapContainer)
+
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
+
+        binding.viewAllNearby.setOnClickListener {
+            fullscreenMapContainer.visibility = View.VISIBLE
+            setupFullscreenMap()
+        }
+
+        backFromMap.setOnClickListener {
+            fullscreenMapContainer.visibility = View.GONE
+        }
 
         val current = LocalDateTime.now()
         val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy hh:mm a")
@@ -166,6 +209,8 @@ class UserHomeFragment : Fragment() {
 //                }
 //            }
 //        }
+
+        checkLocationPermission()
 
         binding.dermaList.setOnClickListener {
             val intent = Intent(requireContext(), DoctorLists::class.java)
@@ -380,6 +425,200 @@ class UserHomeFragment : Fragment() {
             if (isAdded && context != null) {
                 Toast.makeText(context, "Failed to retrieve user data", Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+    // --------------------------------------------
+    // LOCATION PERMISSION
+    // --------------------------------------------
+    private fun checkLocationPermission() {
+        if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                requireActivity(),
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_REQUEST_CODE
+            )
+        } else {
+            setupMap()
+        }
+    }
+    // --------------------------------------------
+    // MINI MAP (HOME SCREEN)
+    // --------------------------------------------
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupMap() {
+        val mapFragment = childFragmentManager.findFragmentById(R.id.mapContainer)
+                as? SupportMapFragment ?: SupportMapFragment.newInstance().also {
+            childFragmentManager.beginTransaction().replace(R.id.mapContainer, it).commit()
+        }
+
+        mapFragment.getMapAsync { googleMap ->
+
+            // Fix scroll issue when inside ScrollView
+            mapFragment.view?.setOnTouchListener { v, event ->
+                when (event.action) {
+                    MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE ->
+                        v.parent.requestDisallowInterceptTouchEvent(true)
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                        v.parent.requestDisallowInterceptTouchEvent(false)
+                }
+                false
+            }
+
+            googleMap.uiSettings.apply {
+                isZoomControlsEnabled = true
+                isScrollGesturesEnabled = true
+            }
+
+            val defaultLocation = LatLng(7.4478, 125.8097)
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 13f))
+
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                googleMap.isMyLocationEnabled = true
+            }
+
+            // Load registered/partnered clinics from Firebase using addresses and geocode
+            loadClinicsUsingAddress(googleMap)
+        }
+    }
+
+    // --------------------------------------------
+    // FULLSCREEN MAP
+    // --------------------------------------------
+    private fun setupFullscreenMap() {
+        val mapFragment = childFragmentManager.findFragmentById(R.id.fullMapContainer)
+                as? SupportMapFragment ?: SupportMapFragment.newInstance().also {
+            childFragmentManager.beginTransaction().replace(R.id.fullMapContainer, it).commit()
+        }
+
+        mapFragment.getMapAsync { googleMap ->
+            googleMap.uiSettings.apply {
+                isZoomControlsEnabled = true
+                isScrollGesturesEnabled = true
+            }
+
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                googleMap.isMyLocationEnabled = true
+            }
+
+            val defaultLocation = LatLng(7.4478, 125.8097)
+            googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 13f))
+
+            // Load clinics dynamically by address geocoding
+            loadClinicsUsingAddress(googleMap)
+        }
+    }
+
+    // --------------------------------------------
+    // LOAD CLINICS FROM FIREBASE USING ADDRESS + GEOCODER
+    // --------------------------------------------
+    private fun loadClinicsUsingAddress(googleMap: GoogleMap) {
+        val clinicRef = FirebaseDatabase.getInstance(
+            "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("clinicInfo")
+
+        val geocoder = Geocoder(requireContext(), Locale.getDefault())
+
+        clinicRef.get().addOnSuccessListener { snapshot ->
+            for (snap in snapshot.children) {
+                val clinic = snap.getValue(ClinicInfo::class.java)
+
+                // Only load clinics with role derma and address present
+                if (clinic != null &&
+                    clinic.role?.lowercase() == "derma" &&
+                    !clinic.address.isNullOrEmpty()
+                ) {
+                    try {
+                        val results = geocoder.getFromLocationName(clinic.address!!, 1)
+
+                        if (results != null && results.isNotEmpty()) {
+                            val location = results[0]
+                            val latLng = LatLng(location.latitude, location.longitude)
+
+                            googleMap.addMarker(
+                                MarkerOptions()
+                                    .position(latLng)
+                                    .title(clinic.name)
+                                    .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ROSE))
+                            )
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+
+    // --------------------------------------------
+    // PERMISSION RESULT
+    // --------------------------------------------
+    override fun onRequestPermissionsResult(
+        requestCode: Int, permissions: Array<out String>, grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_REQUEST_CODE &&
+            grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED
+        ) {
+            setupMap()
+        }
+    }
+    // --------------------------------------------
+    // TIMESTAMP
+    // --------------------------------------------
+    private fun setupDateTime() {
+        val current = LocalDateTime.now()
+        val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy hh:mm a")
+        binding.dateTimeText.text = current.format(formatter)
+    }
+
+    // --------------------------------------------
+    // FIREBASE USER + CLINIC LIST (HORIZONTAL)
+    // --------------------------------------------
+    private fun setupFirebase() {
+        mAuth = FirebaseAuth.getInstance()
+        mDatabase = FirebaseDatabase.getInstance(
+            "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("userInfo")
+
+        mAuth.currentUser?.uid?.let { getUserData(it) }
+
+        val clinicList = mutableListOf<ClinicInfo>()
+        val adapter = AdapterDermaHomeList(clinicList)
+        binding.dermaRecycleView.layoutManager =
+            LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
+        binding.dermaRecycleView.adapter = adapter
+
+        val clinicRef = FirebaseDatabase.getInstance(
+            "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
+        ).getReference("clinicInfo")
+
+        clinicEventListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (_binding == null) return
+                clinicList.clear()
+
+                for (snap in snapshot.children) {
+                    val clinic = snap.getValue(ClinicInfo::class.java)
+                    if (clinic?.role?.lowercase() == "derma") clinicList.add(clinic)
+                }
+
+                adapter.notifyDataSetChanged()
+            }
+
+            override fun onCancelled(error: DatabaseError) {}
+        }
+
+        clinicRef.addValueEventListener(clinicEventListener!!)
+
+        binding.dermaList.setOnClickListener {
+            startActivity(Intent(requireContext(), DoctorLists::class.java))
         }
     }
 

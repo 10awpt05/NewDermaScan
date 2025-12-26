@@ -1,10 +1,17 @@
 package com.example.dermascanai
 
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.example.dermascanai.databinding.ItemBookingApprovalBinding
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import java.text.SimpleDateFormat
@@ -17,6 +24,7 @@ class BookingApprovalAdapter(
     private val onCancel: (BookingData) -> Unit,
     private val onDone: (BookingData) -> Unit
 ) : RecyclerView.Adapter<BookingApprovalAdapter.BookingViewHolder>() {
+
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): BookingViewHolder {
         val binding = ItemBookingApprovalBinding.inflate(
@@ -37,15 +45,42 @@ class BookingApprovalAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(booking: BookingData) {
+
             // Set text fields
-            binding.patientNameTv.text = booking.patientName ?: booking.patientEmail
-            binding.notesTextView.text = booking.message
-            binding.serviceTextView.text = booking.service ?: "General Consultation"
-            binding.bookingIdTextView.text = "#${booking.bookingId.take(8).uppercase()}"
+            binding.patientNameTv.text = booking.patientName ?: booking.patientName
+
 
             val bookingDateFormat = SimpleDateFormat("MMM dd, yyyy 'at' h:mm a", Locale.getDefault())
             val timestamp = if (booking.createdAt > 0) booking.createdAt else booking.timestampMillis
             binding.bookingTimestampTv.text = "Booked on ${bookingDateFormat.format(Date(timestamp))}"
+
+            // Set status text and colors
+            binding.textStatus.text = booking.status?.replaceFirstChar { it.uppercase() } ?: "Pending"
+            binding.textBookingId.text = "#${booking.bookingId?.takeLast(5) ?: "N/A"}"
+
+            // Set status colors
+            val context = binding.root.context
+            val (backgroundColor, textColor) = when (booking.status?.lowercase()) {
+                "confirmed" -> Pair(R.color.green, android.R.color.white)
+                "declined" -> Pair(R.color.red, android.R.color.white)
+                "cancelled" -> Pair(R.color.red, android.R.color.white)
+                "completed", "done" -> Pair(R.color.blue, android.R.color.white)
+                else -> Pair(R.color.orange, android.R.color.white) // pending
+            }
+
+            binding.statusHeader.setBackgroundColor(ContextCompat.getColor(context, backgroundColor))
+            binding.textStatus.setTextColor(ContextCompat.getColor(context, textColor))
+            binding.textBookingId.setTextColor(ContextCompat.getColor(context, textColor))
+
+            // Set status icon
+            val statusIconRes = when (booking.status?.lowercase()) {
+                "confirmed" -> android.R.drawable.ic_dialog_info
+                "declined" -> android.R.drawable.ic_dialog_alert
+                "cancelled" -> android.R.drawable.ic_menu_close_clear_cancel
+                "completed", "done" -> android.R.drawable.checkbox_on_background
+                else -> android.R.drawable.ic_dialog_info // pending
+            }
+            binding.statusIcon.setImageResource(statusIconRes)
 
             // === DONE BUTTON LOGIC ===
             val currentCal = Calendar.getInstance()
@@ -59,10 +94,8 @@ class BookingApprovalAdapter(
                     currentCal.get(Calendar.DAY_OF_MONTH) == bookingCal.get(Calendar.DAY_OF_MONTH) &&
                     currentCal.get(Calendar.MONTH) == bookingCal.get(Calendar.MONTH)
 
-            // Show Done button only if today
             binding.doneButton.visibility = if (isToday) View.VISIBLE else View.GONE
 
-            // Disable Done and Cancel if already done
             val isDone = booking.status == "done"
             binding.doneButton.isEnabled = !isDone
             binding.doneButton.setBackgroundColor(
@@ -90,11 +123,10 @@ class BookingApprovalAdapter(
                             status = "done"
                         )
                         onDone(updatedBooking)
-                        // Disable buttons
+
                         binding.doneButton.isEnabled = false
                         binding.cancelButton.isEnabled = false
 
-                        // Update status in Firebase
                         val clinicId = FirebaseAuth.getInstance().currentUser?.uid ?: return@setPositiveButton
                         val bookingId = booking.bookingId ?: return@setPositiveButton
                         val updates = mapOf(
@@ -131,7 +163,15 @@ class BookingApprovalAdapter(
             } else {
                 binding.cancellationReasonLayout.visibility = View.GONE
             }
+
+            // ⭐⭐⭐ ADD THIS — Card click listener to show full appointment details
+            binding.root.setOnClickListener {
+                showBookingDetailsDialog(binding.root.context, booking)
+            }
         }
+
+
+
 
         private fun configureStatusElements(booking: BookingData) {
             when (booking.status) {
@@ -140,51 +180,98 @@ class BookingApprovalAdapter(
                     binding.approveButton.visibility = View.VISIBLE
                     binding.declineButton.visibility = View.VISIBLE
                     binding.cancelButton.visibility = View.GONE
-                    binding.statusLayout.visibility = View.GONE
+
                 }
                 "confirmed" -> {
                     binding.approvalButtonsLayout.visibility = View.GONE
                     binding.cancelButton.visibility = View.VISIBLE
-                    binding.statusLayout.visibility = View.VISIBLE
-                    binding.statusTextView.text = "Confirmed"
-                    binding.statusLayout.setBackgroundResource(R.drawable.status_confirmed_background)
-                    binding.statusIcon.setImageResource(R.drawable.check_circle)
+
                 }
                 "cancelled" -> {
                     binding.approvalButtonsLayout.visibility = View.GONE
                     binding.cancelButton.visibility = View.GONE
-                    binding.statusLayout.visibility = View.VISIBLE
-                    binding.statusTextView.text = "Cancelled"
-                    binding.statusLayout.setBackgroundResource(R.drawable.status_cancelled_background)
-                    binding.statusIcon.setImageResource(R.drawable.cancelled)
+
                 }
                 "declined" -> {
                     binding.approvalButtonsLayout.visibility = View.GONE
                     binding.cancelButton.visibility = View.GONE
-                    binding.statusLayout.visibility = View.VISIBLE
-                    binding.statusTextView.text = "Declined"
-                    binding.statusLayout.setBackgroundResource(R.drawable.status_declined_background)
-                    binding.statusIcon.setImageResource(R.drawable.close_circle)
+
                 }
                 "done" -> {
-                    // Hide all action buttons for done
                     binding.approvalButtonsLayout.visibility = View.GONE
                     binding.cancelButton.visibility = View.GONE
-                    binding.statusLayout.visibility = View.VISIBLE
-                    binding.statusTextView.text = "Done"
-                    binding.statusLayout.setBackgroundResource(R.drawable.status_confirmed_background)
-                    binding.statusIcon.setImageResource(R.drawable.check_circle)
-                    binding.statusIcon.setBackgroundColor(
-                        binding.root.context.getColor(android.R.color.white)
-                    )
+
                 }
                 else -> {
                     binding.approvalButtonsLayout.visibility = View.GONE
                     binding.cancelButton.visibility = View.GONE
-                    binding.statusLayout.visibility = View.VISIBLE
-                    binding.statusTextView.text = booking.status.replaceFirstChar { it.uppercase() }
+
                 }
             }
+        }
+
+        // ⭐⭐⭐ Clean appointment details dialog with close button
+        private fun showBookingDetailsDialog(context: Context, booking: BookingData) {
+            val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_booking_details, null)
+
+            // Initialize views
+            val statusHeaderDialog = dialogView.findViewById<LinearLayout>(R.id.statusHeaderDialog)
+            val statusIconDialog = dialogView.findViewById<ImageView>(R.id.statusIconDialog)
+            val statusTextDialog = dialogView.findViewById<TextView>(R.id.statusTextDialog)
+            val patientNameText = dialogView.findViewById<TextView>(R.id.tvPatientName)
+            val serviceText = dialogView.findViewById<TextView>(R.id.tvService)
+            val dateText = dialogView.findViewById<TextView>(R.id.tvDate)
+            val timeText = dialogView.findViewById<TextView>(R.id.tvTime)
+            val notesText = dialogView.findViewById<TextView>(R.id.tvNotes)
+            val bookingIdText = dialogView.findViewById<TextView>(R.id.tvBookingId)
+            val btnClose = dialogView.findViewById<Button>(R.id.btnClose)
+
+            // Set status with colors
+            statusTextDialog?.text = booking.status?.replaceFirstChar { it.uppercase() } ?: "Pending"
+
+            val (backgroundColor, textColor) = when (booking.status?.lowercase()) {
+                "confirmed" -> Pair(R.color.green, android.R.color.white)
+                "declined" -> Pair(R.color.red, android.R.color.white)
+                "cancelled" -> Pair(R.color.red, android.R.color.white)
+                "completed", "done" -> Pair(R.color.blue, android.R.color.white)
+                else -> Pair(R.color.orange, android.R.color.white) // pending
+            }
+
+            statusHeaderDialog?.setBackgroundColor(ContextCompat.getColor(context, backgroundColor))
+            statusTextDialog?.setTextColor(ContextCompat.getColor(context, textColor))
+
+            val statusIconRes = when (booking.status?.lowercase()) {
+                "confirmed" -> android.R.drawable.ic_dialog_info
+                "declined" -> android.R.drawable.ic_dialog_alert
+                "cancelled" -> android.R.drawable.ic_menu_close_clear_cancel
+                "completed", "done" -> android.R.drawable.checkbox_on_background
+                else -> android.R.drawable.ic_dialog_info // pending
+            }
+            statusIconDialog?.setImageResource(statusIconRes)
+
+            // Set data
+            patientNameText.text = booking.patientName ?: booking.patientEmail
+            serviceText.text = booking.service ?: "General Consultation"
+            dateText.text = booking.date ?: "N/A"
+            timeText.text = booking.time ?: "N/A"
+            notesText.text = booking.message?.takeIf { it.isNotEmpty() } ?: "No notes provided"
+            bookingIdText.text = "ID: ${booking.bookingId}"
+
+            // Create dialog
+            val dialog = MaterialAlertDialogBuilder(context)
+                .setView(dialogView)
+                .setCancelable(true)
+                .create()
+
+            // Set rounded corners
+            dialog.window?.setBackgroundDrawableResource(R.drawable.dialog_rounded_background)
+
+            // Close button action
+            btnClose.setOnClickListener {
+                dialog.dismiss()
+            }
+
+            dialog.show()
         }
     }
 }

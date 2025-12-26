@@ -28,6 +28,8 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DermaScanAI"
         tools:targetApi="31">
+
+
         <activity
             android:name=".ReportInfo"
             android:exported="false" />
@@ -87,7 +89,10 @@
         <activity
             android:name=".BookingApprovalRecords"
             android:exported="false"
-            android:screenOrientation="portrait" /> <!-- <activity -->
+            android:screenOrientation="portrait" />
+
+
+        <!-- <activity -->
         <!-- android:name=".ScanDetailActivity" -->
         <!-- android:exported="false" -->
         <!-- android:screenOrientation="portrait" /> -->
@@ -155,14 +160,6 @@
             android:screenOrientation="portrait" />
         <activity
             android:name=".DoctorLists"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name=".DermaProfileFragment"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
-            android:name=".DermaHomeFragment"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity

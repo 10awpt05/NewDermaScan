@@ -116,9 +116,10 @@ class Booking : AppCompatActivity() {
             if (selectedDate == 0L || selectedServiceText.isEmpty() || selectedTimeSlot.isEmpty()) {
                 Toast.makeText(this, "Please select a date, service, and time slot", Toast.LENGTH_SHORT).show()
             } else {
-                proceedWithBooking()
+                checkSlotAvailabilityBeforeProceeding()
             }
         }
+
     }
 
     private fun loadBookedDates() {
@@ -506,7 +507,7 @@ class Booking : AppCompatActivity() {
 
                                     val slotButton = Button(this@Booking).apply {
                                         text = if (remaining > 0) {
-                                            "$slotLabel | $remaining slot(s) left"
+                                            "$slotLabel"
                                         } else {
                                             "$slotLabel | FULL"
                                         }
@@ -569,6 +570,64 @@ class Booking : AppCompatActivity() {
         cal.set(java.util.Calendar.MINUTE, 0)
         val sdf = SimpleDateFormat("h:mm a", Locale.ENGLISH)
         return sdf.format(cal.time)
+    }
+
+    private fun checkSlotAvailabilityBeforeProceeding() {
+        val formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.ENGLISH)
+        val selectedDateStr = Instant.ofEpochMilli(selectedDate)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDate()
+            .format(formatter)
+
+        val clinicRef = database.getReference("clinicInfo")
+        val bookingsRef = database.getReference("bookings")
+
+        // Get clinicId first
+        clinicRef.orderByChild("email").equalTo(clinicEmail)
+            .addListenerForSingleValueEvent(object : ValueEventListener {
+                override fun onDataChange(clinicSnap: DataSnapshot) {
+                    if (!clinicSnap.exists()) return
+
+                    val clinicNode = clinicSnap.children.first()
+                    val clinicId = clinicNode.key ?: return
+
+                    // Query bookings for this clinic
+                    bookingsRef.orderByChild("clinicId").equalTo(clinicId)
+                        .addListenerForSingleValueEvent(object : ValueEventListener {
+                            override fun onDataChange(snapshot: DataSnapshot) {
+                                var slotCount = 0
+
+                                for (bookingSnapshot in snapshot.children) {
+                                    val status = bookingSnapshot.child("status").getValue(String::class.java)
+                                    val date = bookingSnapshot.child("date").getValue(String::class.java)
+                                    val timeSlot = bookingSnapshot.child("timeSlot").getValue(String::class.java)
+                                        ?: bookingSnapshot.child("time").getValue(String::class.java)
+
+                                    if (status in listOf("pending", "confirmed") &&
+                                        date == selectedDateStr &&
+                                        timeSlot == selectedTimeSlot
+                                    ) {
+                                        slotCount++
+                                    }
+                                }
+
+                                if (slotCount >= MAX_BOOKINGS_PER_SLOT) {
+                                    Toast.makeText(
+                                        this@Booking,
+                                        "Sorry, this time slot is already full. Please choose another slot.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                } else {
+                                    proceedWithBooking()
+                                }
+                            }
+
+                            override fun onCancelled(error: DatabaseError) {}
+                        })
+                }
+
+                override fun onCancelled(error: DatabaseError) {}
+            })
     }
 
 }
