@@ -145,9 +145,9 @@ class BookingHistory : AppCompatActivity() {
         dateText.text = appointment.date
 
         // Time
-        if (appointment.time.isNotEmpty()) {
+        if (appointment.timeSlot.isNotEmpty()) {
             timeContainer.visibility = View.VISIBLE
-            timeText.text = appointment.time
+            timeText.text = appointment.timeSlot
         } else {
             timeContainer.visibility = View.GONE
         }
@@ -333,7 +333,7 @@ class BookingHistory : AppCompatActivity() {
                             val patientEmail = bookingSnapshot.child("patientEmail").getValue(String::class.java) ?: ""
                             val clinicName = bookingSnapshot.child("clinicName").getValue(String::class.java) ?: ""
                             val date = bookingSnapshot.child("date").getValue(String::class.java) ?: ""
-                            val time = bookingSnapshot.child("time").getValue(String::class.java) ?: ""
+                            val time = bookingSnapshot.child("timeSlot").getValue(String::class.java) ?: ""
                             val service = bookingSnapshot.child("service").getValue(String::class.java) ?: ""
                             val message = bookingSnapshot.child("message").getValue(String::class.java) ?: ""
                             val status = bookingSnapshot.child("status").getValue(String::class.java) ?: "pending"
@@ -345,7 +345,7 @@ class BookingHistory : AppCompatActivity() {
                                 patientEmail = patientEmail,
                                 doctorName = clinicName,
                                 date = date,
-                                time = time,
+                                timeSlot = time,
                                 service = service,
                                 message = message,
                                 status = status,
@@ -452,7 +452,7 @@ class BookingHistory : AppCompatActivity() {
                         .child(appointment.doctorName.replace(" ", "_").replace(".", ","))
                         .child("schedule")
                         .child(appointment.date)
-                        .child(appointment.time)
+                        .child(appointment.timeSlot)
 
                     scheduleRef.runTransaction(object : com.google.firebase.database.Transaction.Handler {
                         override fun doTransaction(currentData: com.google.firebase.database.MutableData): com.google.firebase.database.Transaction.Result {
@@ -467,7 +467,7 @@ class BookingHistory : AppCompatActivity() {
                             snapshot: com.google.firebase.database.DataSnapshot?
                         ) {
                             if (committed) {
-                                Log.d("BookingHistory", "Slot restored successfully for ${appointment.date} ${appointment.time}")
+                                Log.d("BookingHistory", "Slot restored successfully for ${appointment.date} ${appointment.timeSlot}")
                             } else if (error != null) {
                                 Log.e("BookingHistory", "Error restoring slot: ${error.message}")
                                 Toast.makeText(this@BookingHistory, "Failed to restore slot", Toast.LENGTH_SHORT).show()
@@ -558,7 +558,7 @@ class BookingHistory : AppCompatActivity() {
 
             holder.bookingId.text = "#${appointment.bookingId.takeLast(5)}"
             holder.clinicName.text = appointment.doctorName
-            holder.appointmentDate.text = appointment.date
+            holder.appointmentDate.text = appointment.date + " | " + appointment.timeSlot
 
             val status = appointment.status.replaceFirstChar { it.uppercase() }
             holder.appointmentStatus.text = status

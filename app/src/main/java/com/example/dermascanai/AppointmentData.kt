@@ -5,7 +5,7 @@ data class Appointment(
     val patientEmail: String = "",
     val doctorName: String = "",
     val date: String = "",
-    val time: String = "",
+    val timeSlot: String = "",
     val service: String = "",
     val message: String = "",
     val status: String = "pending",
