@@ -250,12 +250,14 @@ class BookingApprovalAdapter(
             statusIconDialog?.setImageResource(statusIconRes)
 
             // Set data
+            // Set data
             patientNameText.text = booking.patientName ?: booking.patientEmail
-            serviceText.text = booking.service ?: "General Consultation"
-            dateText.text = booking.date ?: "N/A"
-            timeText.text = booking.time ?: "N/A"
-            notesText.text = booking.message?.takeIf { it.isNotEmpty() } ?: "No notes provided"
+            serviceText.text = booking.service.ifEmpty { "General Consultation" }
+            dateText.text = booking.date.ifEmpty { "N/A" }
+            timeText.text = booking.timeSlot.ifEmpty { "N/A" }
+            notesText.text = booking.message.takeIf { it.isNotEmpty() } ?: "No notes provided"
             bookingIdText.text = "ID: ${booking.bookingId}"
+
 
             // Create dialog
             val dialog = MaterialAlertDialogBuilder(context)

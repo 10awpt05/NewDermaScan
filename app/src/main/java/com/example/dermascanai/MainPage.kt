@@ -170,6 +170,8 @@ class MainPage : AppCompatActivity() {
 
         // ✅ Button: show choice dialog
         binding.scanButton.setOnClickListener {
+            binding.arrow1.visibility = View.GONE
+            binding.gifImageView.visibility = View.GONE
             showImagePickerDialog()
         }
 
@@ -215,19 +217,56 @@ class MainPage : AppCompatActivity() {
 
             // Update UI
             predictions.forEachIndexed { index, pair ->
+                val diseaseWithConfidence = pair.first
+                val condition = diseaseWithConfidence.substringBefore("(").trim()
+
                 when (index) {
-                    0 -> { binding.resultTextView1.text = pair.first; binding.remedyTextView1.text = pair.second }
-                    1 -> { binding.resultTextView2.text = pair.first; binding.remedyTextView2.text = pair.second }
-                    2 -> { binding.resultTextView3.text = pair.first; binding.remedyTextView3.text = pair.second }
+                    0 -> {
+                        binding.resultTextView1.text = diseaseWithConfidence
+                        binding.remedyTextView1.text = pair.second
+                        binding.viewDetail1.visibility = View.VISIBLE
+
+                        binding.viewDetail1.setOnClickListener {
+                            openDiseaseDetail(condition, bitmap)
+                        }
+                    }
+
+                    1 -> {
+                        binding.resultTextView2.text = diseaseWithConfidence
+                        binding.remedyTextView2.text = pair.second
+                        binding.viewDetail2.visibility = View.VISIBLE
+
+                        binding.viewDetail2.setOnClickListener {
+                            openDiseaseDetail(condition, bitmap)
+                        }
+                    }
+
+                    2 -> {
+                        binding.resultTextView3.text = diseaseWithConfidence
+                        binding.remedyTextView3.text = pair.second
+                        binding.viewDetail3.visibility = View.VISIBLE
+
+                        binding.viewDetail3.setOnClickListener {
+                            openDiseaseDetail(condition, bitmap)
+                        }
+                    }
                 }
             }
 
+
+
             binding.progressContainer.visibility = View.GONE
+            binding.cardView14.visibility = View.VISIBLE
+            binding.cardView15.visibility = View.VISIBLE
+            binding.cardView16.visibility = View.VISIBLE
+            binding.clinicRec.visibility = View.VISIBLE
             binding.saveScanButton.visibility = View.VISIBLE
+
             binding.saveScanButton.setOnClickListener {
+
                 saveScanToFirebase(predictions, bitmap)
             }
-
+            loadClinicsFromFirebase()
 
             // ✅ Show report dialog if the user is a dermatologist
             val userId = firebase.currentUser?.uid ?: return@launch
@@ -240,6 +279,23 @@ class MainPage : AppCompatActivity() {
             }
         }
     }
+    private fun openDiseaseDetail(
+        condition: String,
+        bitmap: Bitmap
+    ) {
+        // Save bitmap to cache as file
+        val imageFile = File.createTempFile("scan_", ".jpg", cacheDir)
+        val fos = FileOutputStream(imageFile)
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, fos)
+        fos.flush()
+        fos.close()
+
+        val intent = Intent(this, DiseaseDetails::class.java)
+        intent.putExtra("condition", condition)
+        intent.putExtra("imagePath", imageFile.absolutePath)
+        startActivity(intent)
+    }
+
 
 
     private fun isDermatologist(userId: String, callback: (Boolean) -> Unit) {
@@ -630,9 +686,9 @@ class MainPage : AppCompatActivity() {
             "Nail Fungus" -> "Apply antifungal creams or medicated nail solutions. Keep nails dry and trimmed; oral medication may be required for persistent cases."
             "Normal" -> "Your skin is healthy. Maintain good hydration, a balanced diet, and regular skincare with sunscreen to keep it that way!"
             "Tinea or Ringworm" -> "Apply an over-the-counter antifungal cream (like clotrimazole or terbinafine) twice daily. Keep the affected area clean and dry."
-            "Urticaria Hives" -> "Avoid known triggers, take antihistamines if needed, and keep skin cool. Consult a doctor if hives persist or worsen."
+            "Urticaria-Hives" -> "Avoid known triggers, take antihistamines if needed, and keep skin cool. Consult a doctor if hives persist or worsen."
             "Vitiligo" -> "Use broad-spectrum sunscreen to protect depigmented areas. Topical corticosteroids or phototherapy may be recommended by a dermatologist."
-            "Warts" -> "Use salicylic acid treatments or over-the-counter cryotherapy. Avoid picking to prevent spreading the virus."
+            "Warts or Viral Infection" -> "Use salicylic acid treatments or over-the-counter cryotherapy. Avoid picking to prevent spreading the virus."
             else -> "No specific remedy found. Consult a dermatologist for diagnosis and treatment."
         }
     }

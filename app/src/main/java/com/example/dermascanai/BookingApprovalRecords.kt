@@ -290,11 +290,6 @@ class BookingApprovalRecords : AppCompatActivity() {
                     else -> "declined"
                 }
 
-                if (newStatus == "confirmed") {
-                    if (booking.date != null && booking.time != null) {
-                        deductSlotOnApproval(clinicId, booking.date!!, booking.time!!)
-                    }
-                }
 
                 Toast.makeText(this, "Appointment $statusMessage", Toast.LENGTH_SHORT).show()
 
@@ -323,34 +318,12 @@ class BookingApprovalRecords : AppCompatActivity() {
     }
 
 
-    private fun deductSlotOnApproval(clinicId: String, date: String, time: String) {
-        val slotRef = database.reference
-            .child("clinicInfo")
-            .child(clinicId)
-            .child("schedule")
-            .child(date)
-            .child(time)
-
-        slotRef.runTransaction(object : Transaction.Handler {
-            override fun doTransaction(currentData: MutableData): Transaction.Result {
-                var slots = currentData.getValue(Int::class.java) ?: 5
-
-                if (slots > 0) {
-                    slots -= 1
-                    currentData.value = slots
-                }
-
-                return Transaction.success(currentData)
-            }
-
-            override fun onComplete(
-                error: DatabaseError?,
-                committed: Boolean,
-                currentData: DataSnapshot?
-            ) {
-                Log.d("Slots", "Slot deducted after approval. Remaining: ${currentData?.value}")
-            }
-        })
+    private fun deductSlotOnApproval(
+        clinicId: String,
+        date: String,
+        time: String
+    ) {
+        // ❌ DELETE EVERYTHING
     }
 
     private fun refreshCurrentView() {
@@ -453,12 +426,11 @@ class BookingApprovalRecords : AppCompatActivity() {
                     val status = bookingSnapshot.child("status").getValue(String::class.java) ?: "pending"
                     if (status.lowercase() == "pending") {
                         val dateStr = bookingSnapshot.child("date").getValue(String::class.java) ?: continue
-                        val timeStr = bookingSnapshot.child("time").getValue(String::class.java) ?: "00:00"
+                        val timeStr = bookingSnapshot.child("timeSlot").getValue(String::class.java) ?: continue
+
 
                         try {
-                            val dateTimeFormat = java.text.SimpleDateFormat("MMMM dd, yyyy HH:mm", Locale.getDefault())
-                            val appointmentDateTime = dateTimeFormat.parse("$dateStr $timeStr") ?: continue
-
+                            val appointmentDateTime = parseAppointmentDateTime(dateStr, timeStr) ?: continue
                             if (appointmentDateTime.before(Date())) {
                                 val bookingId = bookingSnapshot.child("bookingId").getValue(String::class.java) ?: continue
                                 val userId = bookingSnapshot.child("userId").getValue(String::class.java) ?: continue
@@ -515,7 +487,8 @@ class BookingApprovalRecords : AppCompatActivity() {
                     val bookingId = bookingSnapshot.child("bookingId").getValue(String::class.java) ?: continue
                     val userId = bookingSnapshot.child("userId").getValue(String::class.java) ?: continue
                     val dateStr = bookingSnapshot.child("date").getValue(String::class.java) ?: continue
-                    val timeStr = bookingSnapshot.child("time").getValue(String::class.java) ?: "00:00"
+                    val timeStr = bookingSnapshot.child("timeSlot").getValue(String::class.java) ?: continue
+
 
                     try {
                         val dateTimeFormat = java.text.SimpleDateFormat("MMMM dd, yyyy HH:mm", Locale.getDefault())
@@ -586,7 +559,7 @@ class BookingApprovalRecords : AppCompatActivity() {
                         "doctorEmail" to booking.doctorEmail,
                         "service" to booking.service,
                         "bookedDate" to booking.date,
-                        "bookedTime" to booking.time,
+                        "bookedTime" to booking.timeSlot,
                         "message" to booking.message,
                         "status" to "completed",
                         "createdAt" to booking.createdAt,
@@ -607,4 +580,15 @@ class BookingApprovalRecords : AppCompatActivity() {
                 }
             })
     }
+
+    private fun parseAppointmentDateTime(date: String, timeSlot: String): Date? {
+        return try {
+            val startTime = timeSlot.split("-")[0].trim() // "9:00 AM"
+            val sdf = java.text.SimpleDateFormat("MMMM dd, yyyy h:mm a", Locale.getDefault())
+            sdf.parse("$date $startTime")
+        } catch (e: Exception) {
+            null
+        }
+    }
+
 }

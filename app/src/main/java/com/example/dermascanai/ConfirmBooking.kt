@@ -37,6 +37,8 @@ class ConfirmBooking : AppCompatActivity() {
     private var patientName: String = ""
     private var clinicName: String = ""
     private var timestampMillis: Long = 0L
+    private var selectedSlotId: String = ""
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +57,8 @@ class ConfirmBooking : AppCompatActivity() {
         clinicName = intent.getStringExtra("clinicName") ?: ""
         timestampMillis = intent.getLongExtra("timestampMillis", System.currentTimeMillis())
         bookingId = intent.getStringExtra("bookingId") ?: System.currentTimeMillis().toString()
+        selectedSlotId = intent.getStringExtra("slotId") ?: ""
+
 
         // ✅ Get current user email
         val currentUserEmail = auth.currentUser?.email
@@ -147,28 +151,44 @@ class ConfirmBooking : AppCompatActivity() {
         })
     }
 
-    private fun checkExistingBooking(selectedDate: String, callback: (Boolean) -> Unit) {
-        val userBookingsRef = firebase.getReference("userBookings").child(patientEmail.replace(".", ","))
+    private fun checkExistingBooking(
+        selectedDate: String,
+        callback: (Boolean) -> Unit
+    ) {
+        val userBookingsRef =
+            firebase.getReference("userBookings")
+                .child(patientEmail.replace(".", ","))
 
         userBookingsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                var hasSameDayBooking = false
+                var hasActiveBookingSameDay = false
 
                 for (bookingSnapshot in snapshot.children) {
-                    val bookingData = bookingSnapshot.value as? HashMap<String, Any>
-                    val status = bookingData?.get("status") as? String
-                    val date = bookingData?.get("date") as? String
 
-                    if (date == selectedDate && status != "cancelled") {
-                        hasSameDayBooking = true
+                    val date = bookingSnapshot.child("date")
+                        .getValue(String::class.java)
+
+                    val status = bookingSnapshot.child("status")
+                        .getValue(String::class.java)
+                        ?.lowercase()
+
+                    // ✅ Only block ACTIVE bookings
+                    val isActiveStatus = status in listOf(
+                        "pending",
+                        "confirmed",
+                        "approved"
+                    )
+
+                    if (date == selectedDate && isActiveStatus) {
+                        hasActiveBookingSameDay = true
                         break
                     }
                 }
 
-                if (hasSameDayBooking) {
+                if (hasActiveBookingSameDay) {
                     Toast.makeText(
                         this@ConfirmBooking,
-                        "You already have a booking on this date. Please choose another day or cancel your existing booking.",
+                        "You already have an active booking on this date. Please choose another day or cancel your existing booking.",
                         Toast.LENGTH_LONG
                     ).show()
                     callback(false)
@@ -178,63 +198,17 @@ class ConfirmBooking : AppCompatActivity() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(this@ConfirmBooking, "Error checking bookings: ${error.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this@ConfirmBooking,
+                    "Error checking bookings: ${error.message}",
+                    Toast.LENGTH_SHORT
+                ).show()
                 callback(false)
             }
         })
     }
-    private fun getAvailableSlots(
-        clinicId: String,
-        date: String,
-        time: String,
-        callback: (Int) -> Unit
-    ) {
-        val scheduleRef = firebase.reference
-            .child("clinicInfo")
-            .child(clinicId)
-            .child("schedule")
-            .child(date)
-            .child(time)
 
-        scheduleRef.addListenerForSingleValueEvent(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
 
-                // If slot value missing → create default = 5
-                val totalSlots = snapshot.getValue(Int::class.java) ?: 5
-
-                // Now count booked slots
-                val bookingsRef = firebase.reference.child("bookings")
-
-                bookingsRef.orderByChild("clinicId").equalTo(clinicId)
-                    .addListenerForSingleValueEvent(object : ValueEventListener {
-                        override fun onDataChange(bookingsSnap: DataSnapshot) {
-                            var bookedCount = 0
-
-                            for (booking in bookingsSnap.children) {
-                                val bDate = booking.child("date").getValue(String::class.java)
-                                val bTime = booking.child("time").getValue(String::class.java)
-                                val status = booking.child("status").getValue(String::class.java)
-
-                                if (bDate == date && bTime == time && status != "cancelled") {
-                                    bookedCount++
-                                }
-                            }
-
-                            val available = totalSlots - bookedCount
-                            callback(available)
-                        }
-
-                        override fun onCancelled(error: DatabaseError) {
-                            callback(0)
-                        }
-                    })
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                callback(0)
-            }
-        })
-    }
 
 
     private fun fetchClinicId(clinicName: String, onResult: (String?) -> Unit) {
@@ -265,17 +239,45 @@ class ConfirmBooking : AppCompatActivity() {
                 return@fetchClinicId
             }
 
-            getAvailableSlots(clinicId, selectedDate, selectedTime) { availableSlots ->
+            val bookingsRef = firebase.getReference("bookings")
 
-                if (availableSlots <= 0) {
-                    Toast.makeText(this, "No available slots at this time.", Toast.LENGTH_SHORT).show()
-                    return@getAvailableSlots
-                }
+            bookingsRef.orderByChild("clinicId").equalTo(clinicId)
+                .addListenerForSingleValueEvent(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        var count = 0
 
-                saveBookingToFirebase(clinicId)
-            }
+                        for (booking in snapshot.children) {
+                            val date = booking.child("date").getValue(String::class.java)
+                            val slotId = booking.child("slotId").getValue(String::class.java)
+                            val status = booking.child("status").getValue(String::class.java)
+
+                            if (
+                                date == selectedDate &&
+                                slotId == selectedSlotId &&
+                                status in listOf("pending", "confirmed", "approved")
+                            ) {
+                                count++
+                            }
+                        }
+
+                        if (count >= 3) {
+                            Toast.makeText(
+                                this@ConfirmBooking,
+                                "This time slot is already fully booked.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        } else {
+                            saveBookingToFirebase(clinicId)
+                        }
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                        Toast.makeText(this@ConfirmBooking, "Error checking slot availability", Toast.LENGTH_SHORT).show()
+                    }
+                })
         }
     }
+
 
 
     private fun fetchPatientName() {
@@ -310,7 +312,9 @@ class ConfirmBooking : AppCompatActivity() {
         booking["patientName"] = patientName   // ✅ Added
         booking["clinicName"] = clinicName
         booking["date"] = selectedDate
-        booking["time"] = selectedTime
+        booking["slotId"] = selectedSlotId     // LOGIC
+        booking["timeSlot"] = selectedTime     // DISPLAY
+
         booking["service"] = selectedService
         booking["message"] = messageText
         booking["status"] = "pending"

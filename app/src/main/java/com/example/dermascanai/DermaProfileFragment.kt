@@ -31,7 +31,7 @@ import com.google.firebase.database.ValueEventListener
 
 class DermaProfileFragment : Fragment() {
     private var _binding: FragmentDermaProfileBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     private lateinit var database: FirebaseDatabase
     private lateinit var mAuth: FirebaseAuth
@@ -49,21 +49,21 @@ class DermaProfileFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentDermaProfileBinding.inflate(inflater, container, false)
-        return binding.root
+        return binding!!.root
     }
 
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val drawerLayout = binding.drawerLayout
-        val navView = binding.navigationView
+        val drawerLayout = binding?.drawerLayout
+        val navView = binding?.navigationView
 
         database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mAuth = FirebaseAuth.getInstance()
 
-        val headerView = navView.getHeaderView(0)
-        val closeDrawerBtn = headerView.findViewById<ImageView>(R.id.closeDrawerBtn)
+        val headerView = navView?.getHeaderView(0)
+        val closeDrawerBtn = headerView?.findViewById<ImageView>(R.id.closeDrawerBtn)
 
         notificationBinding = LayoutNotificationPopupBinding.inflate(layoutInflater)
         val popupWindow = PopupWindow(
@@ -73,17 +73,17 @@ class DermaProfileFragment : Fragment() {
             true
         )
 
-        binding.message.setOnClickListener {
+        binding?.message?.setOnClickListener {
             val intent = Intent(requireContext(), ChatUserListActivity::class.java)
             startActivity(intent)
         }
 
-        binding.records.setOnClickListener {
+        binding?.records?.setOnClickListener {
             val intent = Intent(requireContext(), ReportsHistory::class.java)
             startActivity(intent)
         }
 
-        binding.scanRec.setOnClickListener {
+        binding?.scanRec?.setOnClickListener {
             val intent = Intent(requireContext(), ScanRecords::class.java)
             startActivity(intent)
         }
@@ -92,7 +92,7 @@ class DermaProfileFragment : Fragment() {
 //            startActivity(intent)
 //        }
 
-        binding.appointmentBtn.setOnClickListener {
+        binding?.appointmentBtn?.setOnClickListener {
             val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
             startActivity(intent)
         }
@@ -147,7 +147,7 @@ class DermaProfileFragment : Fragment() {
 //
 //        }
 
-        binding.ratings.setOnClickListener {
+        binding?.ratings?.setOnClickListener {
             val clinicId = mAuth.currentUser?.uid
             val intent = Intent(requireContext(), RatingView::class.java)
             intent.putExtra("clinicId", clinicId)
@@ -161,11 +161,11 @@ class DermaProfileFragment : Fragment() {
 //        }
 
 
-        closeDrawerBtn.setOnClickListener {
-            drawerLayout.closeDrawer(GravityCompat.END)
+        closeDrawerBtn?.setOnClickListener {
+            drawerLayout?.closeDrawer(GravityCompat.END)
         }
 
-        navView.setNavigationItemSelectedListener { menuItem ->
+        navView?.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
 
                 R.id.nav_terms -> {
@@ -181,7 +181,7 @@ class DermaProfileFragment : Fragment() {
 
                 }
             }
-            drawerLayout.closeDrawers()
+            drawerLayout?.closeDrawers()
             true
         }
 
@@ -207,7 +207,7 @@ class DermaProfileFragment : Fragment() {
 //            logoutUser()
 //        }
 
-        binding.btnToggleInfo.setOnClickListener {
+        binding?.btnToggleInfo?.setOnClickListener {
             val intent = Intent(requireContext(), ClinicProfile::class.java)
             startActivity(intent)
         }

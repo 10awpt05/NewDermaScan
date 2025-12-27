@@ -16,6 +16,7 @@ data class BookingData(
     val status: String = "pending",
     var declineReason: String? = null,
     var cancellationReason: String? = null,
-    val time: String = "",
+    val slotId: String = "",      // ← LOGIC
+    val timeSlot: String = "",    // ← DISPLAY
     val date: String = ""
 ) : Serializable

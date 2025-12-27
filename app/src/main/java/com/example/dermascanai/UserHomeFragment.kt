@@ -54,7 +54,7 @@ import android.Manifest
 
 class UserHomeFragment : Fragment() {
     private var _binding: FragmentHomeUserBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     private lateinit var mDatabase: DatabaseReference
     private lateinit var mAuth: FirebaseAuth
@@ -86,20 +86,20 @@ class UserHomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         _binding = FragmentHomeUserBinding.inflate(inflater, container, false)
-        return binding.root
+        return binding!!.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        fullscreenMapContainer = binding.root.findViewById(R.id.fullscreenMapContainer)
-        backFromMap = binding.root.findViewById(R.id.backFromMap)
-        fullMapContainer = binding.root.findViewById(R.id.fullMapContainer)
+        fullscreenMapContainer = binding!!.root.findViewById(R.id.fullscreenMapContainer)
+        backFromMap = binding!!.root.findViewById(R.id.backFromMap)
+        fullMapContainer = binding!!.root.findViewById(R.id.fullMapContainer)
 
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(requireContext())
 
-        binding.viewAllNearby.setOnClickListener {
+        binding?.viewAllNearby?.setOnClickListener {
             fullscreenMapContainer.visibility = View.VISIBLE
             setupFullscreenMap()
         }
@@ -112,8 +112,8 @@ class UserHomeFragment : Fragment() {
         val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy hh:mm a")
         val formatted = current.format(formatter)
 
-        val drawerLayout = binding.drawerLayout
-        val navView = binding.navigationView
+        val drawerLayout = binding?.drawerLayout
+        val navView = binding?.navigationView
 
         mAuth = FirebaseAuth.getInstance()
         mDatabase = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("userInfo")
@@ -121,7 +121,7 @@ class UserHomeFragment : Fragment() {
 //        val clinicList = mutableListOf<ClinicInfo>()
         val databaseRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/").getReference("clinicInfo")
 
-        val headerBinding = NavHeaderBinding.bind(navView.getHeaderView(0))
+        val headerBinding = NavHeaderBinding.bind(navView!!.getHeaderView(0))
         val closeDrawerBtn = headerBinding.closeDrawerBtn
 
 
@@ -132,7 +132,7 @@ class UserHomeFragment : Fragment() {
 //        displayTopBlogPost(binding)
 
 
-        binding.dateTimeText.text = formatted
+        binding?.dateTimeText?.text = formatted
 
         val userId = mAuth.currentUser?.uid
         getUserData(userId.toString())
@@ -212,16 +212,16 @@ class UserHomeFragment : Fragment() {
 
         checkLocationPermission()
 
-        binding.dermaList.setOnClickListener {
+        binding?.dermaList?.setOnClickListener {
             val intent = Intent(requireContext(), DoctorLists::class.java)
             startActivity(intent)
         }
         val clinicList = mutableListOf<ClinicInfo>()
         val adapter = AdapterDermaHomeList(clinicList)
-        binding.dermaRecycleView.setHasFixedSize(true)
-        binding.dermaRecycleView.layoutManager =
+        binding?.dermaRecycleView?.setHasFixedSize(true)
+        binding?.dermaRecycleView?.layoutManager =
             LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
-        binding.dermaRecycleView.adapter = adapter
+        binding?.dermaRecycleView?.adapter = adapter
 
 
 //        binding.dermaRecycleView.layoutManager =
@@ -258,7 +258,7 @@ class UserHomeFragment : Fragment() {
 //            drawerLayout.closeDrawers()
 //            true
 //        }
-        val cardView = binding.cardGradientBackground
+        val cardView = binding?.cardGradientBackground
 
 // Pick consistent color based on current day
         val dayOfYear = Calendar.getInstance().get(Calendar.DAY_OF_YEAR)
@@ -271,11 +271,11 @@ class UserHomeFragment : Fragment() {
         val selectedGradient = colors[dayOfYear % colors.size]
 
 // Set gradient as background
-        cardView.setBackgroundResource(selectedGradient)
+        cardView?.setBackgroundResource(selectedGradient)
 
 
-        val gradientLayout = binding.cardGradientBackground
-        gradientLayout.setBackgroundResource(selectedGradient)
+        val gradientLayout = binding?.cardGradientBackground
+        gradientLayout?.setBackgroundResource(selectedGradient)
 
         val tipRef = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
             .getReference("dailyTips")
@@ -296,32 +296,32 @@ class UserHomeFragment : Fragment() {
                     val tipText = randomTip.child("text").getValue(String::class.java)
                     val imageBase64 = randomTip.child("image_base64").getValue(String::class.java)
 
-                    binding.dailyTips.text = tipText ?: "Stay tuned for more skin care tips!"
+                    binding?.dailyTips?.text = tipText ?: "Stay tuned for more skin care tips!"
 
                     if (!imageBase64.isNullOrEmpty()) {
                         try {
                             val decodedBytes = Base64.decode(imageBase64, Base64.DEFAULT)
                             val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                            binding.dailyImage.setImageBitmap(bitmap)
-                            binding.dailyImage.visibility = View.VISIBLE
+                            binding?.dailyImage?.setImageBitmap(bitmap)
+                            binding?.dailyImage?.visibility = View.VISIBLE
                         } catch (e: Exception) {
                             Log.e("DailyTips", "Image decode failed: ${e.message}")
-                            binding.dailyImage.visibility = View.GONE
+                            binding?.dailyImage?.visibility = View.GONE
                         }
                     } else {
-                        binding.dailyImage.visibility = View.GONE
+                        binding?.dailyImage?.visibility = View.GONE
                     }
                 } else {
-                    binding.dailyTips.text = "No tips available right now!"
-                    binding.dailyImage.visibility = View.GONE
+                    binding?.dailyTips?.text = "No tips available right now!"
+                    binding?.dailyImage?.visibility = View.GONE
                 }
             }
 
             override fun onCancelled(error: DatabaseError) {
                 if (_binding == null) return
 
-                binding.dailyTips.text = "Failed to load tip."
-                binding.dailyImage.visibility = View.GONE
+                binding?.dailyTips?.text = "Failed to load tip."
+                binding?.dailyImage?.visibility = View.GONE
                 Log.e("DailyTips", "Error: ${error.message}")
             }
         }
@@ -389,14 +389,14 @@ class UserHomeFragment : Fragment() {
                 val user = snapshot.getValue(UserInfo::class.java)
 
                 if (user != null) {
-                    binding.fullName.text = "${user.name}"
+                    binding?.fullName?.text = "${user.name}"
 
                     if (user.profileImage != null) {
                         try {
                             val decodedByteArray = Base64.decode(user.profileImage, Base64.DEFAULT)
                             val decodedBitmap = BitmapFactory.decodeByteArray(decodedByteArray, 0, decodedByteArray.size)
 
-                            binding.profileView.setImageBitmap(decodedBitmap)
+                            binding?.profileView?.setImageBitmap(decodedBitmap)
                         } catch (e: Exception) {
                             Log.e("UserProfileFragment", "Error decoding Base64 image", e)
                             if (isAdded && context != null) {
@@ -407,7 +407,7 @@ class UserHomeFragment : Fragment() {
                         if (isAdded && context != null) {
                             Glide.with(this)
                                 .load(R.drawable.ic_profile)
-                                .into(binding.profileView)
+                                .into(binding!!.profileView)
                         }
                     }
                 } else {
@@ -575,7 +575,7 @@ class UserHomeFragment : Fragment() {
     private fun setupDateTime() {
         val current = LocalDateTime.now()
         val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy hh:mm a")
-        binding.dateTimeText.text = current.format(formatter)
+        binding?.dateTimeText?.text = current.format(formatter)
     }
 
     // --------------------------------------------
@@ -591,9 +591,9 @@ class UserHomeFragment : Fragment() {
 
         val clinicList = mutableListOf<ClinicInfo>()
         val adapter = AdapterDermaHomeList(clinicList)
-        binding.dermaRecycleView.layoutManager =
+        binding?.dermaRecycleView?.layoutManager =
             LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false)
-        binding.dermaRecycleView.adapter = adapter
+        binding?.dermaRecycleView?.adapter = adapter
 
         val clinicRef = FirebaseDatabase.getInstance(
             "https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/"
@@ -617,7 +617,7 @@ class UserHomeFragment : Fragment() {
 
         clinicRef.addValueEventListener(clinicEventListener!!)
 
-        binding.dermaList.setOnClickListener {
+        binding?.dermaList?.setOnClickListener {
             startActivity(Intent(requireContext(), DoctorLists::class.java))
         }
     }

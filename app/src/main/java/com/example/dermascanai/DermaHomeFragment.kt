@@ -42,7 +42,7 @@ import java.util.*
 
 class DermaHomeFragment : Fragment() {
     private var _binding: FragmentDermaHomeBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
     private lateinit var mAuth: FirebaseAuth
     private lateinit var database: FirebaseDatabase
     private lateinit var notificationBinding: LayoutNotificationPopupBinding
@@ -64,7 +64,7 @@ class DermaHomeFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View? {
         _binding = FragmentDermaHomeBinding.inflate(inflater, container, false)
-        return binding.root
+        return binding!!.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -74,21 +74,21 @@ class DermaHomeFragment : Fragment() {
         val formatter = DateTimeFormatter.ofPattern("MMMM dd, yyyy hh:mm a")
         val formatted = current.format(formatter)
 
-        val drawerLayout = binding.drawerLayout
-        val navView = binding.navigationView
+        val drawerLayout = binding?.drawerLayout
+        val navView = binding?.navigationView
         adapter = RatingsAdapter(feedbackList)
-        binding.recyclerView.layoutManager = LinearLayoutManager(requireContext())
-        binding.recyclerView.adapter = adapter
+        binding?.recyclerView?.layoutManager = LinearLayoutManager(requireContext())
+        binding?.recyclerView?.adapter = adapter
         database = FirebaseDatabase.getInstance("https://dermascanai-2d7a1-default-rtdb.asia-southeast1.firebasedatabase.app/")
         mAuth = FirebaseAuth.getInstance()
         val clinicId = mAuth.currentUser?.uid ?: return
 
         ratingsRef = database.getReference("ratings").child(clinicId.toString())
 
-        val headerView = navView.getHeaderView(0)
-        val closeDrawerBtn = headerView.findViewById<ImageView>(R.id.closeDrawerBtn)
+        val headerView = navView?.getHeaderView(0)
+        val closeDrawerBtn = headerView?.findViewById<ImageView>(R.id.closeDrawerBtn)
 
-        binding.viewReviews.setOnClickListener {
+        binding?.viewReviews?.setOnClickListener {
             val clinicId = mAuth.currentUser?.uid
             val intent = Intent(requireContext(), RatingView::class.java)
             intent.putExtra("clinicId", clinicId)
@@ -98,7 +98,7 @@ class DermaHomeFragment : Fragment() {
         fetchConfirmedBookingsAndDecorateCalendar()
 
 
-        binding.dateTimeText.text = formatted
+        binding?.dateTimeText?.text = formatted
 
         notificationBinding = LayoutNotificationPopupBinding.inflate(layoutInflater)
         val popupWindow = PopupWindow(
@@ -144,39 +144,39 @@ class DermaHomeFragment : Fragment() {
 //                }
 //            }
 //        }
-        displayTopBlogPost(binding) // ---------------------------------------------------------------------
+        displayTopBlogPost(binding!!) // ---------------------------------------------------------------------
 
 
 //        binding.menuIcon.setOnClickListener {
 //            drawerLayout.openDrawer(GravityCompat.END)
 //        }
 
-        closeDrawerBtn.setOnClickListener {
-            drawerLayout.closeDrawer(GravityCompat.END)
+        closeDrawerBtn?.setOnClickListener {
+            drawerLayout?.closeDrawer(GravityCompat.END)
             }
 
-        navView.setNavigationItemSelectedListener { menuItem ->
+        navView?.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
 
                 R.id.nav_terms -> startActivity(Intent(requireContext(), TermsConditions::class.java))
                 R.id.privacy -> startActivity(Intent(requireContext(), PrivacyPolicy::class.java))
                 R.id.nav_logout -> logoutUser()
             }
-            drawerLayout.closeDrawers()
+            drawerLayout?.closeDrawers()
             true
         }
 
-        binding.appointmentDate.setOnClickListener {
+        binding?.appointmentDate?.setOnClickListener {
             val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
             startActivity(intent)
         }
 
         val dateText = getCurrentFormattedDate()
-        binding.currentTime.text = dateText
+        binding?.currentTime?.text = dateText
 
 
         checkApprovedBookingCountForToday(clinicId, requireContext()) { count ->
-            binding.nameAppoint.text = when {
+            binding?.nameAppoint?.text = when {
                 count == 0 -> "No approved bookings today"
                 count == 1 -> "You have 1 approved booking today"
                 else -> "You have $count approved bookings today"
@@ -233,9 +233,9 @@ class DermaHomeFragment : Fragment() {
         })
 
         fetchBookingSummaryForClinic(clinicId, requireContext()) { pending, approved, total ->
-            binding.noPedning.text = "$pending"
-            binding.noApproved.text = "$approved"
-            binding.noTotal.text = "$total"
+            binding?.noPedning?.text = "$pending"
+            binding?.noApproved?.text = "$approved"
+            binding?.noTotal?.text = "$total"
         }
 
 
@@ -315,13 +315,13 @@ class DermaHomeFragment : Fragment() {
             val clinics = snapshot.children.mapNotNull { it.getValue(ClinicInfo::class.java) }
             if (clinics.isNotEmpty()) {
                 val featuredClinic = clinics.random()
-                binding.name.text = featuredClinic.clinicName
-                binding.totalR.text = String.format("%.1f", featuredClinic?.rating ?: 0f)
+                binding?.name?.text = featuredClinic.clinicName
+                binding?.totalR?.text = String.format("%.1f", featuredClinic?.rating ?: 0f)
 
                 if (!featuredClinic.logoImage.isNullOrEmpty()) {
                     val decodedBytes = Base64.decode(featuredClinic.logoImage, Base64.DEFAULT)
                     val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                    binding.profileImageView.setImageBitmap(bitmap)
+                    binding?.profileImageView?.setImageBitmap(bitmap)
                 }
 
                 val address = featuredClinic.clinicAddress ?: ""
@@ -521,7 +521,7 @@ class DermaHomeFragment : Fragment() {
         })
     }
     private fun fetchConfirmedBookingsAndDecorateCalendar() {
-        val calendarView = binding.calendarView
+        val calendarView = binding?.calendarView
         confirmedDates.clear()
 
         val clinicId = FirebaseAuth.getInstance().currentUser?.uid ?: return
@@ -556,11 +556,11 @@ class DermaHomeFragment : Fragment() {
                 }
 
                 // Decorate calendar
-                calendarView.addDecorator(ConfirmedBookingDecorator(confirmedDates))
-                calendarView.addDecorator(TodayDecorator())
+                calendarView?.addDecorator(ConfirmedBookingDecorator(confirmedDates))
+                calendarView?.addDecorator(TodayDecorator())
 
                 // Click listener to open booking page
-                calendarView.setOnDateChangedListener { _, date, _ ->
+                calendarView?.setOnDateChangedListener { _, date, _ ->
                     if (confirmedDates.contains(date)) {
                         val intent = Intent(requireContext(), BookingApprovalRecords::class.java)
                         intent.putExtra("selectedDate", date.date.toString())

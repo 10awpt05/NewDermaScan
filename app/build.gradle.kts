@@ -92,7 +92,6 @@ dependencies {
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.firebase.auth)
-
     implementation("pl.droidsonroids.gif:android-gif-drawable:1.2.27")
     implementation("com.prolificinteractive:material-calendarview:1.4.3")
 

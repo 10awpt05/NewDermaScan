@@ -33,7 +33,7 @@ import java.time.format.DateTimeFormatter
 
 class UserProfileFragment : Fragment() {
     private var _binding: FragmentProfileUserBinding? = null
-    private val binding get() = _binding!!
+    private val binding get() = _binding
 
     private lateinit var database: FirebaseDatabase
     private lateinit var mAuth: FirebaseAuth
@@ -55,7 +55,7 @@ class UserProfileFragment : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         _binding = FragmentProfileUserBinding.inflate(inflater, container, false)
-        return binding.root
+        return binding!!.root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -80,21 +80,21 @@ class UserProfileFragment : Fragment() {
 //            true
 //        )
 
-        binding.message.setOnClickListener {
+        binding?.message?.setOnClickListener {
             val intent = Intent(requireContext(), ChatUserListActivity::class.java)
             startActivity(intent)
         }
-        binding.scanRec.setOnClickListener {
+        binding?.scanRec?.setOnClickListener {
             val intent = Intent(requireContext(), ScanRecords::class.java)
             startActivity(intent)
         }
 
-        binding.bookingHis.setOnClickListener {
+        binding?.bookingHis?.setOnClickListener {
             val intent = Intent(requireContext(), BookingHistory::class.java)
             startActivity(intent)
         }
 
-        binding.message.setOnClickListener {
+        binding?.message?.setOnClickListener {
             val intent = Intent(requireContext(), ChatUserListActivity::class.java)
             startActivity(intent)
         }
@@ -189,7 +189,7 @@ class UserProfileFragment : Fragment() {
 //            logoutUser()
 //        }
 
-        binding.btnToggleInfo.setOnClickListener {
+        binding?.btnToggleInfo?.setOnClickListener {
             val intent = Intent(requireContext(), PersonalInfo::class.java)
             startActivity(intent)
         }
@@ -211,13 +211,13 @@ class UserProfileFragment : Fragment() {
                 val userInfo = snapshot.getValue(UserInfo::class.java)
 
                 // Set name
-                binding.fullName.setText(userInfo?.name ?: "")
+                binding?.fullName?.setText(userInfo?.name ?: "")
 
                 userInfo?.profileImage?.let {
                     if (it.isNotEmpty()) {
                         val decodedBytes = Base64.decode(it, Base64.DEFAULT)
                         val bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.size)
-                        binding.profPic.setImageBitmap(bitmap)
+                        binding?.profPic?.setImageBitmap(bitmap)
                     }
                 }
             } else {

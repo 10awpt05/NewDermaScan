@@ -216,41 +216,44 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:cardCornerRadius="16dp"
+                    android:padding="10dp"
                     app:cardElevation="4dp">
 
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="240dp"
+                        android:layout_height="wrap_content"
+                        android:padding="10dp"
+                        android:layout_gravity="center"
                         android:background="@color/white">
 
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/dermaRecycleView"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
-                            android:background="@drawable/recycler_rounded_bg"
-                            android:clipToPadding="false"
                             android:orientation="horizontal"
                             android:overScrollMode="never"
+                            android:padding="10dp"
                             android:paddingHorizontal="16dp"
                             android:paddingVertical="12dp"
                             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
                         <!-- Left fade overlay -->
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="match_parent"
-                            android:layout_gravity="start"
-                            android:scaleType="fitXY"
-                            android:src="@drawable/fade_left" />
 
-                        <!-- Right fade overlay -->
-                        <ImageView
-                            android:layout_width="40dp"
-                            android:layout_height="match_parent"
-                            android:layout_gravity="end"
-                            android:scaleType="fitXY"
-                            android:src="@drawable/fade_right" />
                     </FrameLayout>
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="start"
+                        android:scaleType="fitXY"
+                        android:src="@drawable/fade_left" />
+
+                    <!-- Right fade overlay -->
+                    <ImageView
+                        android:layout_width="40dp"
+                        android:layout_height="match_parent"
+                        android:layout_gravity="end"
+                        android:scaleType="fitXY"
+                        android:src="@drawable/fade_right" />
                 </androidx.cardview.widget.CardView>
 
                 <LinearLayout

@@ -134,6 +134,7 @@
         <activity
             android:name=".ConfirmBooking"
             android:exported="false"
+            android:windowSoftInputMode="adjustResize|stateHidden"
             android:screenOrientation="portrait" />
         <activity
             android:name=".Booking"
